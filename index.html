@@ -1,0 +1,2322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fitness Competition Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 10px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            color: #764ba2;
+            font-size: 2em;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .auth-form {
+            max-width: 100%;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+            -webkit-appearance: none;
+            background-color: #fff;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 10px;
+            touch-action: manipulation;
+        }
+
+        .btn:hover, .btn:active {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-small {
+            padding: 10px 15px;
+            font-size: 14px;
+            width: auto;
+            margin: 0 5px 0 0;
+        }
+
+        .nav {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+        }
+
+        .nav .btn {
+            margin-bottom: 0;
+            padding: 12px 8px;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            opacity: 0.9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 13px;
+            position: sticky;
+            top: 0;
+        }
+
+        .leaderboard {
+            max-height: 70vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .exercise-input {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .exercise-input input {
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .user-info {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 99;
+        }
+
+        .welcome-text {
+            font-size: 1.1em;
+            color: #764ba2;
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            float: right;
+            width: auto;
+            padding: 8px 15px;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .admin-badge {
+            background: #28a745;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            margin-left: 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: linear-gradient(135deg, #f1f3f4 0%, #e8eaed 100%);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 8px;
+            border: 1px solid rgba(0,0,0,0.08);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%, #a855f7 100%);
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 11px;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            right: 2px;
+            height: 6px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%);
+            border-radius: 6px;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 11px;
+            font-weight: 600;
+            color: #333;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+            z-index: 1;
+        }
+
+        .workout-item, .checkin-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .workout-date {
+            font-weight: 600;
+            color: #764ba2;
+            margin-bottom: 8px;
+        }
+
+        .exercise-detail {
+            font-size: 14px;
+            color: #666;
+            margin: 3px 0;
+        }
+
+        .quick-add {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            z-index: 1000;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            max-width: 400px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 5px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .tab.active {
+            background: white;
+            color: #764ba2;
+            font-weight: 600;
+        }
+
+        .todo-item {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+        .todo-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .btn-reset {
+            background: #ffc107;
+            color: #000;
+            font-size: 12px;
+            padding: 5px 10px;
+        }
+
+        .btn-edit {
+            background: #17a2b8;
+            color: white;
+            font-size: 12px;
+            padding: 5px 10px;
+        }
+
+        .reset-notice {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .password-reset-form {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .user-status {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-reset {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Calendar Styles */
+        .calendar-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .calendar-nav {
+            background: #667eea;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .calendar-nav:hover {
+            background: #5a6fd8;
+            transform: scale(1.1);
+        }
+
+        .calendar-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #764ba2;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+
+        .calendar-day-header {
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            padding: 8px 4px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            min-height: 40px;
+        }
+
+        .calendar-day:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .calendar-day.today {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        .calendar-day.has-workout {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        .calendar-day.has-checkin {
+            border: 2px solid #ffc107;
+        }
+
+        .calendar-day.has-max-update {
+            background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        .calendar-day.has-multiple {
+            background: linear-gradient(135deg, #ff5722 0%, #ff9800 100%);
+            color: white;
+            font-weight: 600;
+            position: relative;
+        }
+
+        .calendar-day.has-multiple::after {
+            content: '★';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 8px;
+        }
+
+        .calendar-day.other-month {
+            color: #ccc;
+        }
+
+        .workout-indicator {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 6px;
+            height: 6px;
+            background: #28a745;
+            border-radius: 50%;
+        }
+
+        /* Notification Styles */
+        .notification-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .notification-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255,255,255,0.3);
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: rgba(255,255,255,0.5);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .reminder-time {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .time-input {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+
+        .time-input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .notification-status {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        /* Mobile Calendar Optimizations */
+        @media (max-width: 480px) {
+            .calendar-day {
+                min-height: 35px;
+                font-size: 12px;
+            }
+            
+            .calendar-day-header {
+                font-size: 10px;
+                padding: 6px 2px;
+            }
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .container {
+                padding: 5px;
+            }
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .container {
+                padding: 5px;
+            }
+
+            .card {
+                padding: 15px;
+                margin-bottom: 10px;
+        }
+
+        .nav {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .exercise-input {
+            grid-template-columns: 1fr;
+        }
+
+        .exercise-input input {
+            margin-bottom: 8px;
+        }
+
+        table {
+            font-size: 12px;
+        }
+
+        th, td {
+            padding: 8px 4px;
+        }
+
+        .stat-number {
+            font-size: 1.5em;
+        }
+        }
+
+        /* Extra small screens */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.5em;
+            }
+
+            .nav {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+            }
+
+            .nav .btn {
+                padding: 8px 4px;
+                font-size: 11px;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .notification-section h3 {
+                font-size: 1em;
+            }
+
+            .reminder-time {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .reminder-time label {
+                font-size: 14px;
+            }
+        }
+
+        /* iOS Safari specific fixes */
+        @supports (-webkit-touch-callout: none) {
+            .user-info {
+                position: -webkit-sticky;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Login/Register Screen -->
+    <div id="auth-screen">
+        <div class="card">
+            <div class="header">
+                <h1>💪 Fitness Competition</h1>
+                <p>Track your gains and compete with friends!</p>
+            </div>
+
+            <div class="auth-form">
+                <div id="login-form">
+                    <h2>Login</h2>
+
+                    <!-- Password Reset Notice -->
+                    <div id="reset-notice" class="reset-notice hidden">
+                        <strong>Password Reset Required</strong><br>
+                        Your password has been reset by an admin. Please enter your username and set a new password below.
+                    </div>
+
+                    <!-- Normal Login Form -->
+                    <div id="normal-login">
+                        <div class="form-group">
+                            <label>Username:</label>
+                            <input type="text" id="login-username" placeholder="Enter your username" autocomplete="username">
+                        </div>
+                        <div class="form-group">
+                            <label>Password:</label>
+                            <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password">
+                        </div>
+                        <button class="btn" onclick="login()">Login</button>
+                        <button class="btn btn-secondary" onclick="showRegister()">Create Account</button>
+                        <button class="btn btn-secondary" onclick="showPasswordReset()" style="font-size: 14px; padding: 10px;">Forgot Password?</button>
+                    </div>
+
+                    <!-- Password Reset Form -->
+                    <div id="password-reset-form" class="password-reset-form hidden">
+                        <h3>Reset Password</h3>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                            If your password was reset by an admin, enter your username to set a new password.
+                        </p>
+                        <div class="form-group">
+                            <label>Username:</label>
+                            <input type="text" id="reset-username" placeholder="Enter your username">
+                        </div>
+                        <div class="form-group">
+                            <label>New Password:</label>
+                            <input type="password" id="reset-new-password" placeholder="Enter new password" autocomplete="new-password">
+                        </div>
+                        <div class="form-group">
+                            <label>Confirm Password:</label>
+                            <input type="password" id="reset-confirm-password" placeholder="Confirm new password" autocomplete="new-password">
+                        </div>
+                        <button class="btn" onclick="resetPassword()">Set New Password</button>
+                        <button class="btn btn-secondary" onclick="showNormalLogin()">Back to Login</button>
+                    </div>
+                </div>
+
+                <div id="register-form" class="hidden">
+                    <h2>Create Account</h2>
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <input type="text" id="reg-username" placeholder="Choose a username" autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="reg-password" placeholder="Choose a password" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label>Height (inches):</label>
+                        <input type="number" id="reg-height" placeholder="Your height in inches">
+                    </div>
+                    <div class="form-group">
+                        <label>Starting Weight (lbs):</label>
+                        <input type="number" id="reg-weight" placeholder="Your current weight">
+                    </div>
+                    <button class="btn" onclick="register()">Create Account</button>
+                    <button class="btn btn-secondary" onclick="showLogin()">Back to Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="main-screen" class="hidden">
+        <div class="user-info">
+            <span class="welcome-text" id="welcome-text"></span>
+            <button class="btn btn-danger logout-btn" onclick="logout()">Logout</button>
+            <div style="clear: both;"></div>
+        </div>
+
+        <div class="nav">
+            <button class="btn" onclick="showSection('dashboard')">Dashboard</button>
+            <button class="btn" onclick="showSection('calendar')">Calendar</button>
+            <button class="btn" onclick="showSection('maxes')">Maxes</button>
+            <button class="btn" onclick="showSection('daily')">Workout</button>
+            <button class="btn" onclick="showSection('weekly')">Check-in</button>
+            <button class="btn" onclick="showSection('competition')">Leaderboard</button>
+            <button class="btn" onclick="showSection('admin')" id="admin-btn" class="hidden">Admin</button>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="card">
+            <h2>Your Dashboard</h2>
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-workouts">0</div>
+                    <div class="stat-label">Total Workouts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="current-weight">0</div>
+                    <div class="stat-label">Current Weight</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="strength-gain">0</div>
+                    <div class="stat-label">Strength Gain</div>
+                </div>
+            </div>
+
+            <h3>Recent Activity</h3>
+            <div id="recent-workouts">
+                <p>No recent workouts logged.</p>
+            </div>
+
+            <!-- Notification Settings -->
+            <div class="notification-section">
+                <h3 style="margin-top: 0;">🔔 Workout Reminders</h3>
+                <div class="notification-toggle">
+                    <span>Daily Workout Reminder</span>
+                    <label class="switch">
+                        <input type="checkbox" id="notification-toggle" onchange="toggleNotifications()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div id="reminder-settings" class="hidden">
+                    <div class="reminder-time">
+                        <label>Reminder Time:</label>
+                        <input type="time" id="reminder-time" class="time-input" value="18:00" onchange="updateReminderTime()">
+                    </div>
+                    <div class="reminder-time">
+                        <label>Message:</label>
+                        <input type="text" id="reminder-message" class="time-input" 
+                               placeholder="Time to crush your workout!" 
+                               style="flex: 1;" onchange="updateReminderMessage()">
+                    </div>
+                </div>
+
+                <div class="notification-status" id="notification-status">
+                    Enable notifications to get daily workout reminders
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar Section -->
+        <div id="calendar-section" class="card hidden">
+            <h2>📅 Progress Calendar</h2>
+            <p style="margin-bottom: 20px; color: #666; font-size: 14px;">
+                Track your daily progress at a glance
+            </p>
+
+            <div class="calendar-container">
+                <div class="calendar-header">
+                    <button class="calendar-nav" onclick="previousMonth()">‹</button>
+                    <div class="calendar-title" id="calendar-title">January 2024</div>
+                    <button class="calendar-nav" onclick="nextMonth()">›</button>
+                </div>
+                
+                <div class="calendar-grid" id="calendar-grid">
+                    <!-- Calendar will be generated here -->
+                </div>
+            </div>
+
+            <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                <h4 style="margin: 0 0 10px 0;">Legend:</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; font-size: 13px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 20px; height: 20px; background: #667eea; border-radius: 4px;"></div>
+                        <span>Today</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border-radius: 4px;"></div>
+                        <span>Workout</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%); border-radius: 4px;"></div>
+                        <span>Max Update</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 20px; height: 20px; border: 2px solid #ffc107; border-radius: 4px;"></div>
+                        <span>Check-in</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #ff5722 0%, #ff9800 100%); border-radius: 4px; position: relative;">
+                            <span style="position: absolute; top: 1px; right: 1px; font-size: 8px; color: white;">★</span>
+                        </div>
+                        <span>Multiple Activities</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Set Maxes Section -->
+        <div id="maxes-section" class="card hidden">
+            <h2>Maximum Lifts</h2>
+            <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Set your starting and current max lifts</p>
+
+            <div id="maxes-form">
+                <div class="form-group">
+                    <label>Exercise Name:</label>
+                    <input type="text" placeholder="e.g., Bench Press" id="new-exercise">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Starting Max:</label>
+                        <input type="number" placeholder="lbs" id="new-starting">
+                    </div>
+                    <div class="form-group">
+                        <label>Current Max:</label>
+                        <input type="number" placeholder="lbs" id="new-current">
+                    </div>
+                </div>
+                <button class="btn" onclick="addMax()">Add Exercise</button>
+            </div>
+
+            <div id="maxes-list"></div>
+            <button class="btn" onclick="saveMaxes()">Save All Changes</button>
+        </div>
+
+        <!-- Daily Workout Section -->
+        <div id="daily-section" class="card hidden">
+            <h2>Log Workout</h2>
+
+            <div class="form-group">
+                <label>Date:</label>
+                <input type="date" id="workout-date">
+            </div>
+
+            <div id="daily-exercises">
+                <h3>Add Exercises</h3>
+                <div class="form-group">
+                    <label>Exercise:</label>
+                    <input type="text" placeholder="Exercise name" id="daily-exercise">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Weight:</label>
+                        <input type="number" placeholder="lbs" id="daily-weight">
+                    </div>
+                    <div class="form-group">
+                        <label>Sets:</label>
+                        <input type="number" placeholder="3" id="daily-sets">
+                    </div>
+                    <div class="form-group">
+                        <label>Reps:</label>
+                        <input type="number" placeholder="10" id="daily-reps">
+                    </div>
+                </div>
+                <button class="btn" onclick="addDailyExercise()">Add Exercise</button>
+            </div>
+
+            <div id="daily-workout-list"></div>
+            <button class="btn" onclick="saveDailyWorkout()">Save Workout</button>
+        </div>
+
+        <!-- Weekly Check-in Section -->
+        <div id="weekly-section" class="card hidden">
+            <h2>Weekly Check-in</h2>
+
+            <div class="form-group">
+                <label>Current Weight (lbs):</label>
+                <input type="number" id="weekly-weight" placeholder="Your current weight">
+            </div>
+
+            <div class="form-group">
+                <label>How are you feeling?</label>
+                <select id="weekly-feeling">
+                    <option value="">Select...</option>
+                    <option value="great">Great - Very strong</option>
+                    <option value="good">Good - Feeling solid</option>
+                    <option value="okay">Okay - Average week</option>
+                    <option value="tired">Tired - Need rest</option>
+                    <option value="sore">Sore - Recovery needed</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Notes (optional):</label>
+                <textarea id="weekly-notes" rows="3" placeholder="How was your training this week?"></textarea>
+            </div>
+
+            <button class="btn" onclick="saveWeeklyCheckin()">Save Check-in</button>
+
+            <h3>Previous Check-ins</h3>
+            <div id="weekly-history"></div>
+        </div>
+
+        <!-- Competition Section -->
+        <div id="competition-section" class="card hidden">
+            <h2>🏆 Leaderboard</h2>
+            <p style="margin-bottom: 15px; color: #666; font-size: 14px;">
+                Rankings based on total strength gained from starting maxes
+            </p>
+
+            <div class="leaderboard">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Athlete</th>
+                        <th>Gain</th>
+                        <th>Progress</th>
+                    </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Admin Section -->
+        <div id="admin-section" class="card hidden">
+            <h2>👑 Admin Panel</h2>
+
+            <div class="tabs">
+                <div class="tab active" onclick="showAdminTab('users')">Users</div>
+                <div class="tab" onclick="showAdminTab('stats')">Stats</div>
+                <div class="tab" onclick="showAdminTab('todo')">TODO</div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="admin-users" class="admin-tab">
+                <h3>User Management</h3>
+                <div id="admin-users-list"></div>
+            </div>
+
+            <!-- Stats Tab -->
+            <div id="admin-stats" class="admin-tab hidden">
+                <h3>System Statistics</h3>
+                <div class="dashboard-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-users">0</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="total-workouts-all">0</div>
+                        <div class="stat-label">All Workouts</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="avg-strength-gain">0</div>
+                        <div class="stat-label">Avg Strength Gain</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="active-users">0</div>
+                        <div class="stat-label">Active Users</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TODO Tab -->
+            <div id="admin-todo" class="admin-tab hidden">
+                <h3>Development TODO</h3>
+                <div class="todo-item">
+                    <div class="todo-title">💰 Payment Integration</div>
+                    <div class="todo-desc">
+                        Add Stripe/PayPal integration for competition entry fees and prize distribution.
+                        Consider subscription model for premium features.
+                    </div>
+                </div>
+                <div class="todo-item">
+                    <div class="todo-title">📊 Advanced Analytics</div>
+                    <div class="todo-desc">
+                        Add charts for progress tracking, body composition analysis, and performance predictions.
+                    </div>
+                </div>
+                <div class="todo-item">
+                    <div class="todo-title">🏆 Prize Management</div>
+                    <div class="todo-desc">
+                        Create prize pool management system with automatic winner selection and payout distribution.
+                    </div>
+                </div>
+                <div class="todo-item">
+                    <div class="todo-title">📱 Push Notifications</div>
+                    <div class="todo-desc">
+                        Implement workout reminders, competition updates, and achievement notifications.
+                    </div>
+                </div>
+                <div class="todo-item">
+                    <div class="todo-title">👥 Social Features</div>
+                    <div class="todo-desc">
+                        Add friend system, workout sharing, and social challenges between users.
+                    </div>
+                </div>
+                <div class="todo-item">
+                    <div class="todo-title">📊 Export Data</div>
+                    <div class="todo-desc">
+                        Allow users to export their workout data to CSV/PDF for personal records.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Data storage
+    let currentUser = null;
+    let currentSection = 'dashboard';
+    let currentAdminTab = 'users';
+    let authToken = localStorage.getItem('authToken'); // Persistent login for mobile
+    
+    // Calendar and notification state
+    let currentCalendarDate = new Date();
+    let notificationsEnabled = localStorage.getItem('notificationsEnabled') === 'true';
+    let reminderTime = localStorage.getItem('reminderTime') || '18:00';
+    let reminderMessage = localStorage.getItem('reminderMessage') || 'Time to crush your workout!';
+    let notificationPermission = false;
+
+    // Default exercises
+    const defaultExercises = ['Bench Press', 'Deadlift', 'Squat', 'Overhead Press', 'Bicep Curls', 'Barbell Rows'];
+
+    // Initialize app
+    function initApp() {
+        document.getElementById('workout-date').value = new Date().toISOString().split('T')[0];
+        
+        // Check for persistent login token
+        if (authToken) {
+            validateTokenAndLogin();
+        }
+    }
+
+    // Validate stored token and auto-login
+    async function validateTokenAndLogin() {
+        try {
+            const response = await fetch('/api/user/data', {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+
+            if (response.ok) {
+                const userData = await response.json();
+                currentUser = userData.user;
+                currentUser.maxes = userData.maxes;
+                currentUser.maxUpdateDates = userData.maxUpdateDates || [];
+                currentUser.workouts = userData.workouts;
+                currentUser.weeklyCheckins = userData.weeklyCheckins;
+                
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('main-screen').classList.remove('hidden');
+                updateUserInterface();
+                showSection('dashboard');
+                initializeNotifications();
+            } else {
+                // Token is invalid, remove it
+                localStorage.removeItem('authToken');
+                authToken = null;
+            }
+        } catch (error) {
+            console.error('Auto-login failed:', error);
+            localStorage.removeItem('authToken');
+            authToken = null;
+        }
+    }
+
+    // API helper functions
+    async function apiCall(endpoint, options = {}) {
+        const config = {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
+                ...options.headers
+            }
+        };
+
+        try {
+            const response = await fetch(endpoint, config);
+            return { response, data: await response.json() };
+        } catch (error) {
+            console.error('API call failed:', error);
+            throw error;
+        }
+    }
+
+    // Authentication
+    function showLogin() {
+        document.getElementById('login-form').classList.remove('hidden');
+        document.getElementById('register-form').classList.add('hidden');
+        showNormalLogin();
+    }
+
+    function showRegister() {
+        document.getElementById('login-form').classList.add('hidden');
+        document.getElementById('register-form').classList.remove('hidden');
+    }
+
+    function showNormalLogin() {
+        document.getElementById('normal-login').classList.remove('hidden');
+        document.getElementById('password-reset-form').classList.add('hidden');
+        document.getElementById('reset-notice').classList.add('hidden');
+    }
+
+    function showPasswordReset() {
+        document.getElementById('normal-login').classList.add('hidden');
+        document.getElementById('password-reset-form').classList.remove('hidden');
+    }
+
+    async function login() {
+        const username = document.getElementById('login-username').value.trim();
+        const password = document.getElementById('login-password').value;
+
+        if (!username || !password) {
+            alert('Please enter both username and password');
+            return;
+        }
+
+        try {
+            const { response, data } = await apiCall('/api/login', {
+                method: 'POST',
+                body: JSON.stringify({ username, password })
+            });
+
+            if (response.ok) {
+                if (data.requiresReset) {
+                    document.getElementById('reset-notice').classList.remove('hidden');
+                    document.getElementById('reset-username').value = username;
+                    showPasswordReset();
+                    return;
+                }
+
+                // Store token for persistent login
+                authToken = data.token;
+                localStorage.setItem('authToken', authToken);
+                
+                // Load user data
+                await loadUserData();
+
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('main-screen').classList.remove('hidden');
+                updateUserInterface();
+                showSection('dashboard');
+                initializeNotifications();
+            } else {
+                alert(data.error || 'Login failed');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Login failed. Please try again.');
+        }
+    }
+
+    async function loadUserData() {
+        try {
+            const { response, data } = await apiCall('/api/user/data');
+            
+            if (response.ok) {
+                currentUser = data.user;
+                currentUser.maxes = data.maxes;
+                currentUser.maxUpdateDates = data.maxUpdateDates || [];
+                currentUser.workouts = data.workouts;
+                currentUser.weeklyCheckins = data.weeklyCheckins;
+            }
+        } catch (error) {
+            console.error('Failed to load user data:', error);
+        }
+    }
+
+    async function resetPassword() {
+        const username = document.getElementById('reset-username').value.trim();
+        const newPassword = document.getElementById('reset-new-password').value;
+        const confirmPassword = document.getElementById('reset-confirm-password').value;
+
+        if (!username || !newPassword || !confirmPassword) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            alert('Password must be at least 6 characters');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            alert('Passwords do not match');
+            return;
+        }
+
+        try {
+            const { response, data } = await apiCall('/api/reset-password', {
+                method: 'POST',
+                body: JSON.stringify({ username, newPassword, confirmPassword })
+            });
+
+            if (response.ok) {
+                // Clear form
+                document.getElementById('reset-username').value = '';
+                document.getElementById('reset-new-password').value = '';
+                document.getElementById('reset-confirm-password').value = '';
+
+                alert('Password updated successfully! You can now log in with your new password.');
+                showNormalLogin();
+            } else {
+                alert(data.error || 'Password reset failed');
+            }
+        } catch (error) {
+            console.error('Password reset error:', error);
+            alert('Password reset failed. Please try again.');
+        }
+    }
+
+    async function register() {
+        const username = document.getElementById('reg-username').value.trim();
+        const password = document.getElementById('reg-password').value;
+        const height = parseFloat(document.getElementById('reg-height').value);
+        const startingWeight = parseFloat(document.getElementById('reg-weight').value);
+
+        if (!username || !password || !height || !startingWeight) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        if (username.length < 3) {
+            alert('Username must be at least 3 characters');
+            return;
+        }
+
+        if (password.length < 6) {
+            alert('Password must be at least 6 characters');
+            return;
+        }
+
+        try {
+            const { response, data } = await apiCall('/api/register', {
+                method: 'POST',
+                body: JSON.stringify({ username, password, height, startingWeight })
+            });
+
+            if (response.ok) {
+                alert('Account created successfully! Please log in.');
+                showLogin();
+                
+                // Clear form
+                document.getElementById('reg-username').value = '';
+                document.getElementById('reg-password').value = '';
+                document.getElementById('reg-height').value = '';
+                document.getElementById('reg-weight').value = '';
+            } else {
+                alert(data.error || 'Registration failed');
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            alert('Registration failed. Please try again.');
+        }
+    }
+
+    function logout() {
+        // Clear authentication data
+        currentUser = null;
+        authToken = null;
+        localStorage.removeItem('authToken');
+        
+        // Show login screen
+        document.getElementById('auth-screen').classList.remove('hidden');
+        document.getElementById('main-screen').classList.add('hidden');
+        
+        // Clear login form
+        document.getElementById('login-username').value = '';
+        document.getElementById('login-password').value = '';
+    }
+
+    // UI Updates
+    function updateUserInterface() {
+        document.getElementById('welcome-text').textContent =
+            `${currentUser.username}${currentUser.isAdmin ? ' (Admin)' : ''}`;
+
+        if (currentUser.isAdmin) {
+            document.getElementById('admin-btn').classList.remove('hidden');
+        } else {
+            document.getElementById('admin-btn').classList.add('hidden');
+        }
+
+        updateDashboard();
+    }
+
+    function showSection(section) {
+        // Hide all sections
+        document.querySelectorAll('[id$="-section"]').forEach(el => {
+            el.classList.add('hidden');
+        });
+
+        // Show selected section
+        document.getElementById(section + '-section').classList.remove('hidden');
+        currentSection = section;
+
+        // Update section-specific data
+        switch(section) {
+            case 'dashboard':
+                updateDashboard();
+                break;
+            case 'calendar':
+                updateCalendar();
+                break;
+            case 'maxes':
+                updateMaxesSection();
+                break;
+            case 'competition':
+                updateCompetition();
+                break;
+            case 'admin':
+                updateAdminPanel();
+                break;
+            case 'weekly':
+                updateWeeklyHistory();
+                break;
+        }
+    }
+
+    // Dashboard
+    function updateDashboard() {
+        document.getElementById('total-workouts').textContent = currentUser.workouts.length;
+        document.getElementById('current-weight').textContent = currentUser.currentWeight + 'lb';
+
+        const strengthGain = calculateStrengthGain(currentUser);
+        document.getElementById('strength-gain').textContent = strengthGain + 'lb';
+
+        // Recent workouts
+        const recentWorkouts = currentUser.workouts.slice(-3).reverse();
+        const recentContainer = document.getElementById('recent-workouts');
+
+        if (recentWorkouts.length === 0) {
+            recentContainer.innerHTML = '<p>No workouts logged yet. Start by logging your first workout!</p>';
+        } else {
+            recentContainer.innerHTML = recentWorkouts.map(workout => `
+                    <div class="workout-item">
+                        <div class="workout-date">${new Date(workout.date).toLocaleDateString()}</div>
+                        ${workout.exercises.slice(0, 3).map(ex =>
+                `<div class="exercise-detail">${ex.exercise}: ${ex.weight}lbs x ${ex.sets}x${ex.reps}</div>`
+            ).join('')}
+                        ${workout.exercises.length > 3 ? `<div class="exercise-detail">+${workout.exercises.length - 3} more exercises</div>` : ''}
+                    </div>
+                `).join('');
+        }
+    }
+
+    // Maxes Section
+    function updateMaxesSection() {
+        const maxesList = document.getElementById('maxes-list');
+        const maxes = currentUser.maxes;
+
+        if (Object.keys(maxes).length === 0) {
+            maxesList.innerHTML = '<p>No exercises added yet. Add your first exercise above!</p>';
+            return;
+        }
+
+        maxesList.innerHTML = `
+                <h3>Your Exercises</h3>
+                ${Object.keys(maxes).map(exercise => `
+                    <div class="workout-item">
+                        <div class="workout-date">${exercise}</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                            <div>
+                                <label style="font-size: 12px; color: #666;">Starting Max:</label>
+                                <input type="number" value="${maxes[exercise].starting}" id="max-${exercise}-starting" style="padding: 8px; font-size: 14px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 12px; color: #666;">Current Max:</label>
+                                <input type="number" value="${maxes[exercise].current}" id="max-${exercise}-current" style="padding: 8px; font-size: 14px;">
+                            </div>
+                        </div>
+                        <button class="btn btn-secondary btn-small" onclick="removeMax('${exercise}')" style="margin-top: 10px; width: auto;">Remove</button>
+                    </div>
+                `).join('')}
+            `;
+    }
+
+    function addMax() {
+        const exercise = document.getElementById('new-exercise').value.trim();
+        const current = parseFloat(document.getElementById('new-current').value) || 0;
+        const starting = parseFloat(document.getElementById('new-starting').value) || 0;
+
+        if (!exercise) {
+            alert('Please enter an exercise name');
+            return;
+        }
+
+        if (currentUser.maxes[exercise]) {
+            alert('Exercise already exists. Edit it below instead.');
+            return;
+        }
+
+        currentUser.maxes[exercise] = { current, starting };
+        document.getElementById('new-exercise').value = '';
+        document.getElementById('new-current').value = '';
+        document.getElementById('new-starting').value = '';
+
+        updateMaxesSection();
+    }
+
+    function removeMax(exercise) {
+        if (confirm(`Remove ${exercise}? This cannot be undone.`)) {
+            delete currentUser.maxes[exercise];
+            updateMaxesSection();
+        }
+    }
+
+    async function saveMaxes() {
+        const maxes = { ...currentUser.maxes };
+        
+        Object.keys(maxes).forEach(exercise => {
+            const currentEl = document.getElementById(`max-${exercise}-current`);
+            const startingEl = document.getElementById(`max-${exercise}-starting`);
+
+            if (currentEl && startingEl) {
+                maxes[exercise].current = parseFloat(currentEl.value) || 0;
+                maxes[exercise].starting = parseFloat(startingEl.value) || 0;
+            }
+        });
+
+        try {
+            const { response, data } = await apiCall('/api/user/maxes', {
+                method: 'POST',
+                body: JSON.stringify({ maxes })
+            });
+
+            if (response.ok) {
+                currentUser.maxes = maxes;
+                
+                // Refresh user data to get updated max dates
+                await loadUserData();
+                
+                alert('Maxes saved successfully!');
+                updateDashboard();
+                
+                // Update calendar if it's currently visible
+                if (currentSection === 'calendar') {
+                    updateCalendar();
+                }
+            } else {
+                alert(data.error || 'Failed to save maxes');
+            }
+        } catch (error) {
+            console.error('Save maxes error:', error);
+            alert('Failed to save maxes. Please try again.');
+        }
+    }
+
+    // Daily Workout
+    let currentWorkoutExercises = [];
+
+    function addDailyExercise() {
+        const exercise = document.getElementById('daily-exercise').value.trim();
+        const weight = parseFloat(document.getElementById('daily-weight').value);
+        const sets = parseInt(document.getElementById('daily-sets').value);
+        const reps = parseInt(document.getElementById('daily-reps').value);
+
+        if (!exercise || !weight || !sets || !reps) {
+            alert('Please fill in all exercise fields');
+            return;
+        }
+
+        currentWorkoutExercises.push({ exercise, weight, sets, reps });
+
+        // Clear inputs
+        document.getElementById('daily-exercise').value = '';
+        document.getElementById('daily-weight').value = '';
+        document.getElementById('daily-sets').value = '';
+        document.getElementById('daily-reps').value = '';
+
+        updateDailyWorkoutList();
+    }
+
+    function updateDailyWorkoutList() {
+        const list = document.getElementById('daily-workout-list');
+
+        if (currentWorkoutExercises.length === 0) {
+            list.innerHTML = '<p>No exercises added yet.</p>';
+            return;
+        }
+
+        list.innerHTML = `
+                <h3>Today's Workout</h3>
+                ${currentWorkoutExercises.map((ex, index) => `
+                    <div class="workout-item">
+                        <div class="exercise-detail">${ex.exercise}: ${ex.weight}lbs x ${ex.sets} sets x ${ex.reps} reps</div>
+                        <button class="btn btn-secondary btn-small" onclick="removeDailyExercise(${index})" style="margin-top: 8px;">Remove</button>
+                    </div>
+                `).join('')}
+            `;
+    }
+
+    function removeDailyExercise(index) {
+        currentWorkoutExercises.splice(index, 1);
+        updateDailyWorkoutList();
+    }
+
+    async function saveDailyWorkout() {
+        const date = document.getElementById('workout-date').value;
+
+        if (!date || currentWorkoutExercises.length === 0) {
+            alert('Please select a date and add at least one exercise');
+            return;
+        }
+
+        try {
+            const { response, data } = await apiCall('/api/user/workout', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    date,
+                    exercises: [...currentWorkoutExercises] 
+                })
+            });
+
+            if (response.ok) {
+                const workout = {
+                    date,
+                    exercises: [...currentWorkoutExercises],
+                    timestamp: new Date().toISOString()
+                };
+
+                currentUser.workouts.unshift(workout);
+                currentWorkoutExercises = [];
+                updateDailyWorkoutList();
+                alert('Workout saved successfully!');
+                updateDashboard();
+            } else {
+                alert(data.error || 'Failed to save workout');
+            }
+        } catch (error) {
+            console.error('Save workout error:', error);
+            alert('Failed to save workout. Please try again.');
+        }
+    }
+
+    // Weekly Check-in
+    async function saveWeeklyCheckin() {
+        const weight = parseFloat(document.getElementById('weekly-weight').value);
+        const feeling = document.getElementById('weekly-feeling').value;
+        const notes = document.getElementById('weekly-notes').value.trim();
+
+        if (!weight || !feeling) {
+            alert('Please fill in weight and how you feel');
+            return;
+        }
+
+        try {
+            const { response, data } = await apiCall('/api/user/checkin', {
+                method: 'POST',
+                body: JSON.stringify({ weight, feeling, notes })
+            });
+
+            if (response.ok) {
+                // Use local date to avoid timezone issues
+                const now = new Date();
+                const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const dateStr = localDate.getFullYear() + '-' + 
+                              String(localDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(localDate.getDate()).padStart(2, '0');
+                
+                const checkin = {
+                    checkin_date: dateStr,
+                    weight,
+                    feeling,
+                    notes,
+                    created_at: new Date().toISOString()
+                };
+
+                currentUser.weeklyCheckins.unshift(checkin);
+                currentUser.currentWeight = weight;
+
+                // Clear form
+                document.getElementById('weekly-weight').value = '';
+                document.getElementById('weekly-feeling').value = '';
+                document.getElementById('weekly-notes').value = '';
+
+                alert('Weekly check-in saved!');
+                updateWeeklyHistory();
+                updateDashboard();
+            } else {
+                alert(data.error || 'Failed to save check-in');
+            }
+        } catch (error) {
+            console.error('Save checkin error:', error);
+            alert('Failed to save check-in. Please try again.');
+        }
+    }
+
+    function updateWeeklyHistory() {
+        const history = document.getElementById('weekly-history');
+        const checkins = currentUser.weeklyCheckins.slice(-5).reverse();
+
+        if (checkins.length === 0) {
+            history.innerHTML = '<p>No previous check-ins.</p>';
+            return;
+        }
+
+        history.innerHTML = checkins.map(checkin => `
+                <div class="checkin-item">
+                    <div class="workout-date">${new Date(checkin.checkin_date).toLocaleDateString()} - ${checkin.weight} lbs</div>
+                    <div class="exercise-detail">Feeling: ${checkin.feeling.charAt(0).toUpperCase() + checkin.feeling.slice(1)}</div>
+                    ${checkin.notes ? `<div class="exercise-detail">${checkin.notes}</div>` : ''}
+                </div>
+            `).join('');
+    }
+
+    // Competition
+    function calculateStrengthGain(user) {
+        return Object.keys(user.maxes).reduce((total, exercise) => {
+            const max = user.maxes[exercise];
+            return total + (max.current - max.starting);
+        }, 0);
+    }
+
+    async function updateCompetition() {
+        try {
+            const { response, data } = await apiCall('/api/leaderboard');
+            
+            if (response.ok) {
+                const leaderboard = data;
+                const maxGain = Math.max(...leaderboard.map(u => u.strength_gain), 1);
+                const tbody = document.getElementById('leaderboard-body');
+
+                if (leaderboard.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">No competitors yet!</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = leaderboard.map((entry, index) => `
+                        <tr ${entry.username === currentUser.username ? 'style="background-color: #e3f2fd;"' : ''}>
+                            <td>${index + 1}</td>
+                            <td>${entry.username}${entry.username === currentUser.username ? ' (You)' : ''}</td>
+                            <td>${entry.strength_gain}lb</td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${Math.max((entry.strength_gain / maxGain) * 100, 5)}%"></div>
+                                    <div class="progress-text">${entry.strength_gain}lb</div>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+            }
+        } catch (error) {
+            console.error('Failed to load leaderboard:', error);
+        }
+    }
+
+    // Admin Panel
+    function showAdminTab(tab) {
+        // Update tab buttons
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Hide all admin tabs
+        document.querySelectorAll('.admin-tab').forEach(t => t.classList.add('hidden'));
+
+        // Show selected tab
+        document.getElementById(`admin-${tab}`).classList.remove('hidden');
+        currentAdminTab = tab;
+
+        if (tab === 'users' || tab === 'stats') {
+            updateAdminPanel();
+        }
+    }
+
+    // Calendar Functions
+    function updateCalendar() {
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        
+        document.getElementById('calendar-title').textContent = 
+            new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            
+        generateCalendar(year, month);
+    }
+
+    function generateCalendar(year, month) {
+        const grid = document.getElementById('calendar-grid');
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+        
+        // Clear and add day headers
+        grid.innerHTML = '';
+        const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        dayHeaders.forEach(day => {
+            const header = document.createElement('div');
+            header.className = 'calendar-day-header';
+            header.textContent = day;
+            grid.appendChild(header);
+        });
+        
+        // Add empty cells for days before month starts
+        for (let i = 0; i < firstDay; i++) {
+            const emptyDay = document.createElement('div');
+            emptyDay.className = 'calendar-day other-month';
+            grid.appendChild(emptyDay);
+        }
+        
+        // Add days of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day';
+            dayElement.textContent = day;
+            
+            const currentDate = new Date(year, month, day);
+            const dateStr = currentDate.toISOString().split('T')[0];
+            
+            // Check what activities happened on this day
+            const hasWorkout = currentUser.workouts.some(w => w.date === dateStr);
+            const hasCheckin = currentUser.weeklyCheckins.some(c => c.checkin_date === dateStr);
+            const hasMaxUpdate = currentUser.maxUpdateDates.includes(dateStr);
+            
+            // Count activities for multiple activity handling
+            let activityCount = 0;
+            if (hasWorkout) activityCount++;
+            if (hasCheckin) activityCount++;
+            if (hasMaxUpdate) activityCount++;
+            
+            // Apply appropriate styling based on activities
+            if (currentDate.toDateString() === today.toDateString()) {
+                dayElement.classList.add('today');
+            } else if (activityCount > 1) {
+                dayElement.classList.add('has-multiple');
+            } else if (hasWorkout) {
+                dayElement.classList.add('has-workout');
+            } else if (hasMaxUpdate) {
+                dayElement.classList.add('has-max-update');
+            } else if (hasCheckin) {
+                dayElement.classList.add('has-checkin');
+            }
+            
+            // Add click handler
+            dayElement.onclick = () => showDayDetails(dateStr);
+            
+            grid.appendChild(dayElement);
+        }
+    }
+
+    function previousMonth() {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+        updateCalendar();
+    }
+
+    function nextMonth() {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+        updateCalendar();
+    }
+
+    function showDayDetails(dateStr) {
+        const workouts = currentUser.workouts.filter(w => w.date === dateStr);
+        const checkins = currentUser.weeklyCheckins.filter(c => c.checkin_date === dateStr);
+        const hasMaxUpdate = currentUser.maxUpdateDates.includes(dateStr);
+        
+        let details = `📅 ${new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        })}\n\n`;
+        
+        if (workouts.length > 0) {
+            details += '💪 Workouts:\n';
+            workouts.forEach(workout => {
+                details += `• ${workout.exercises.length} exercises\n`;
+            });
+            details += '\n';
+        }
+        
+        if (hasMaxUpdate) {
+            details += '🎯 Max Lifts Updated!\n';
+            details += '• New personal records set\n\n';
+        }
+        
+        if (checkins.length > 0) {
+            details += '📊 Check-ins:\n';
+            checkins.forEach(checkin => {
+                details += `• Weight: ${checkin.weight}lbs\n• Feeling: ${checkin.feeling}\n`;
+                if (checkin.notes) details += `• Notes: ${checkin.notes}\n`;
+            });
+        }
+        
+        if (workouts.length === 0 && checkins.length === 0 && !hasMaxUpdate) {
+            details += 'No activity recorded for this day.';
+        }
+        
+        alert(details);
+    }
+
+    // Notification Functions
+    async function requestNotificationPermission() {
+        if ('Notification' in window) {
+            const permission = await Notification.requestPermission();
+            notificationPermission = permission === 'granted';
+            return notificationPermission;
+        }
+        return false;
+    }
+
+    async function toggleNotifications() {
+        const toggle = document.getElementById('notification-toggle');
+        const settings = document.getElementById('reminder-settings');
+        const status = document.getElementById('notification-status');
+        
+        if (toggle.checked) {
+            // Request permission first
+            const permitted = await requestNotificationPermission();
+            
+            if (permitted) {
+                notificationsEnabled = true;
+                localStorage.setItem('notificationsEnabled', 'true');
+                settings.classList.remove('hidden');
+                status.textContent = '✅ Notifications enabled! You\'ll receive daily reminders.';
+                status.style.background = 'rgba(40, 167, 69, 0.2)';
+                
+                // Set up the daily reminder
+                scheduleDailyReminder();
+            } else {
+                toggle.checked = false;
+                status.textContent = '❌ Notifications blocked. Please enable in your browser settings.';
+                status.style.background = 'rgba(220, 53, 69, 0.2)';
+            }
+        } else {
+            notificationsEnabled = false;
+            localStorage.setItem('notificationsEnabled', 'false');
+            settings.classList.add('hidden');
+            status.textContent = 'Enable notifications to get daily workout reminders';
+            status.style.background = 'rgba(255,255,255,0.1)';
+            
+            // Cancel any scheduled reminders
+            cancelDailyReminder();
+        }
+    }
+
+    function updateReminderTime() {
+        reminderTime = document.getElementById('reminder-time').value;
+        localStorage.setItem('reminderTime', reminderTime);
+        
+        if (notificationsEnabled) {
+            scheduleDailyReminder();
+        }
+    }
+
+    function updateReminderMessage() {
+        reminderMessage = document.getElementById('reminder-message').value || 'Time to crush your workout!';
+        localStorage.setItem('reminderMessage', reminderMessage);
+    }
+
+    let reminderInterval = null;
+
+    function scheduleDailyReminder() {
+        // Cancel existing reminder
+        cancelDailyReminder();
+        
+        // Calculate next reminder time
+        const now = new Date();
+        const [hours, minutes] = reminderTime.split(':');
+        const nextReminder = new Date();
+        nextReminder.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        // If time has passed today, schedule for tomorrow
+        if (nextReminder <= now) {
+            nextReminder.setDate(nextReminder.getDate() + 1);
+        }
+        
+        const timeUntilReminder = nextReminder - now;
+        
+        // Set timeout for first reminder
+        setTimeout(() => {
+            sendNotification();
+            
+            // Set daily interval (24 hours = 86400000 ms)
+            reminderInterval = setInterval(sendNotification, 86400000);
+        }, timeUntilReminder);
+        
+        console.log(`Next reminder scheduled for: ${nextReminder.toLocaleString()}`);
+    }
+
+    function cancelDailyReminder() {
+        if (reminderInterval) {
+            clearInterval(reminderInterval);
+            reminderInterval = null;
+        }
+    }
+
+    function sendNotification() {
+        if (notificationPermission && 'Notification' in window) {
+            // Check if user has worked out today
+            const today = new Date().toISOString().split('T')[0];
+            const workedOutToday = currentUser.workouts.some(w => w.date === today);
+            
+            if (!workedOutToday) {
+                new Notification('💪 Fitness Tracker Reminder', {
+                    body: reminderMessage,
+                    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2NjdlZWEiLz4KPHN2ZyB4PSIxNiIgeT0iMTYiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPgo8cGF0aCBkPSJtMyAxNiAzIDMgMTAtMTAiLz4KPC9zdmc+Cjwvc3ZnPg==',
+                    badge: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM2NjdlZWEiLz4KPHN2ZyB4PSIxNiIgeT0iMTYiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPgo8cGF0aCBkPSJtMyAxNiAzIDMgMTAtMTAiLz4KPC9zdmc+Cjwvc3ZnPg==',
+                    tag: 'workout-reminder',
+                    requireInteraction: false
+                });
+            }
+        }
+    }
+
+    // Initialize notification settings on load
+    function initializeNotifications() {
+        const toggle = document.getElementById('notification-toggle');
+        const settings = document.getElementById('reminder-settings');
+        const timeInput = document.getElementById('reminder-time');
+        const messageInput = document.getElementById('reminder-message');
+        
+        if (toggle) {
+            toggle.checked = notificationsEnabled;
+            if (notificationsEnabled) {
+                settings.classList.remove('hidden');
+                requestNotificationPermission().then(permitted => {
+                    notificationPermission = permitted;
+                    if (permitted) {
+                        scheduleDailyReminder();
+                        document.getElementById('notification-status').textContent = '✅ Notifications enabled! You\'ll receive daily reminders.';
+                        document.getElementById('notification-status').style.background = 'rgba(40, 167, 69, 0.2)';
+                    }
+                });
+            }
+        }
+        
+        if (timeInput) timeInput.value = reminderTime;
+        if (messageInput) messageInput.value = reminderMessage;
+    }
+
+    // Admin User Management Functions
+    async function resetUserPassword(username) {
+        if (!currentUser.isAdmin) {
+            alert('Admin access required');
+            return;
+        }
+
+        // Check current status first
+        const hasResetPending = document.querySelector(`[onclick="resetUserPassword('${username}')"]`)?.textContent?.includes('Cancel');
+        
+        const action = hasResetPending ? 'cancel' : 'initiate';
+        const confirmMessage = hasResetPending 
+            ? `Cancel password reset for ${username}?`
+            : `Reset password for ${username}? They will need to set a new password on their next login.`;
+
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            const { response, data } = await apiCall('/api/admin/reset-password', {
+                method: 'POST',
+                body: JSON.stringify({ username })
+            });
+
+            if (response.ok) {
+                alert(data.message);
+                updateAdminPanel();
+            } else {
+                alert(data.error || 'Failed to process password reset');
+            }
+        } catch (error) {
+            console.error('Reset password error:', error);
+            alert('Failed to process password reset. Please try again.');
+        }
+    }
+
+    async function editUser(username) {
+        if (!currentUser.isAdmin) {
+            alert('Admin access required');
+            return;
+        }
+
+        const newPassword = prompt(`Enter new password for ${username}:\n(Must be at least 6 characters, or leave empty to cancel)`);
+
+        if (newPassword === null || newPassword === '') {
+            return; // User cancelled or left empty
+        }
+
+        if (newPassword.length < 6) {
+            alert('Password must be at least 6 characters long');
+            return;
+        }
+
+        if (!confirm(`Change password for ${username} to the new password you entered?`)) {
+            return;
+        }
+
+        try {
+            const { response, data } = await apiCall('/api/admin/edit-user', {
+                method: 'POST',
+                body: JSON.stringify({ username, newPassword })
+            });
+
+            if (response.ok) {
+                alert(`${data.message}\n\nUser ${username} can now log in with their new password.`);
+                updateAdminPanel();
+            } else {
+                alert(data.error || 'Failed to update password');
+            }
+        } catch (error) {
+            console.error('Edit user error:', error);
+            alert('Failed to update password. Please try again.');
+        }
+    }
+
+    async function deleteUser(username) {
+        if (!currentUser.isAdmin) {
+            alert('Admin access required');
+            return;
+        }
+
+        // Prevent deletion of admin user
+        if (username === 'admin') {
+            alert('Cannot delete the admin user');
+            return;
+        }
+
+        // Double confirmation for user deletion
+        const firstConfirm = confirm(
+            `⚠️ WARNING: Delete user "${username}"?\n\n` +
+            `This will permanently delete:\n` +
+            `• User account and profile\n` +
+            `• All workout history\n` +
+            `• All max lift records\n` +
+            `• All weekly check-ins\n` +
+            `• All associated data\n\n` +
+            `This action CANNOT be undone!\n\n` +
+            `Click OK to continue with deletion.`
+        );
+
+        if (!firstConfirm) {
+            return;
+        }
+
+        // Second confirmation
+        const secondConfirm = confirm(
+            `🔴 FINAL CONFIRMATION\n\n` +
+            `Are you absolutely sure you want to permanently delete user "${username}"?\n\n` +
+            `Type "${username}" in the next prompt to confirm deletion.`
+        );
+
+        if (!secondConfirm) {
+            return;
+        }
+
+        // Third confirmation - user must type the username
+        const typedUsername = prompt(
+            `Final step: Type the username "${username}" exactly to confirm deletion:`
+        );
+
+        if (typedUsername !== username) {
+            alert('Username does not match. Deletion cancelled for safety.');
+            return;
+        }
+
+        try {
+            const { response, data } = await apiCall('/api/admin/delete-user', {
+                method: 'POST',
+                body: JSON.stringify({ username })
+            });
+
+            if (response.ok) {
+                alert(`✅ ${data.message}`);
+                updateAdminPanel(); // Refresh the user list
+            } else {
+                alert(`❌ ${data.error || 'Failed to delete user'}`);
+            }
+        } catch (error) {
+            console.error('Delete user error:', error);
+            alert('❌ Failed to delete user. Please try again.');
+        }
+    }
+
+    async function updateAdminPanel() {
+        if (!currentUser.isAdmin) return;
+
+        // Users tab
+        if (currentAdminTab === 'users') {
+            try {
+                const { response, data } = await apiCall('/api/admin/users');
+                
+                if (response.ok) {
+                    const nonAdminUsers = data;
+                    const usersList = document.getElementById('admin-users-list');
+
+                    if (nonAdminUsers.length === 0) {
+                        usersList.innerHTML = '<p>No users registered yet.</p>';
+                        return;
+                    }
+
+                    usersList.innerHTML = `
+                            <div style="overflow-x: auto;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>User</th>
+                                            <th>Status</th>
+                                            <th>Joined</th>
+                                            <th>Weight</th>
+                                            <th>Gain</th>
+                                            <th>Workouts</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${nonAdminUsers.map(user => {
+                        const hasReset = user.has_reset_token;
+                        return `
+                                            <tr>
+                                                <td>${user.username}</td>
+                                                <td>
+                                                    <span class="user-status ${hasReset ? 'status-reset' : 'status-active'}">
+                                                        ${hasReset ? 'Reset Pending' : 'Active'}
+                                                    </span>
+                                                </td>
+                                                <td>${new Date(user.join_date).toLocaleDateString()}</td>
+                                                <td>${user.current_weight}lb</td>
+                                                <td>+${user.strength_gain}lb</td>
+                                                <td>${user.workout_count}</td>
+                                                <td>
+                                                    <div class="action-buttons">
+                                                        <button class="btn btn-small btn-reset" onclick="resetUserPassword('${user.username}')">
+                                                            ${hasReset ? 'Cancel Reset' : 'Reset Password'}
+                                                        </button>
+                                                        <button class="btn btn-small btn-edit" onclick="editUser('${user.username}')">
+                                                            Edit
+                                                        </button>
+                                                        <button class="btn btn-small btn-danger" onclick="deleteUser('${user.username}')" 
+                                                                ${user.username === 'admin' ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        `;
+                    }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                }
+            } catch (error) {
+                console.error('Failed to load users:', error);
+            }
+        }
+
+        // Stats tab
+        if (currentAdminTab === 'stats') {
+            try {
+                const { response, data } = await apiCall('/api/admin/stats');
+                
+                if (response.ok) {
+                    document.getElementById('total-users').textContent = data.totalUsers;
+                    document.getElementById('total-workouts-all').textContent = data.totalWorkouts;
+                    document.getElementById('avg-strength-gain').textContent = data.avgStrengthGain + 'lb';
+                    document.getElementById('active-users').textContent = data.activeUsers;
+                }
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+    }
+
+    // Initialize the app
+    initApp();
+
+    // Service Worker for PWA capabilities (optional)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            // Service worker would be registered here in production
+        });
+    }
+
+    // Prevent zoom on input focus (iOS Safari)
+    document.addEventListener('touchstart', function() {}, true);
+</script>
+</body>
+</html>
