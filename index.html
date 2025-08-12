@@ -310,6 +310,26 @@
             z-index: 1;
         }
 
+        .progress-fill.color-1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .progress-fill.color-2 {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .progress-fill.color-3 {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        }
+
+        .progress-fill.color-4 {
+            background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%);
+        }
+
+        .progress-fill.color-5 {
+            background: linear-gradient(135deg, #ff5722 0%, #f44336 100%);
+        }
+
         .workout-item, .checkin-item {
             background: #f8f9fa;
             padding: 15px;
@@ -528,6 +548,7 @@
             transition: all 0.3s;
             position: relative;
             min-height: 40px;
+            border: 1px solid #eee;
         }
 
         .calendar-day:hover {
@@ -1830,9 +1851,18 @@
         }, 0);
     }
 
+    function getProgressBarColor(gain) {
+        if (gain <= 50) return 'color-1';
+        if (gain <= 100) return 'color-2';
+        if (gain <= 150) return 'color-3';
+        if (gain <= 200) return 'color-4';
+        return 'color-5';
+    }
+
     async function updateCompetition() {
         try {
             const { response, data } = await apiCall('/api/leaderboard');
+            console.log('Leaderboard data:', data);
             
             if (response.ok) {
                 const leaderboard = data;
@@ -1844,7 +1874,9 @@
                     return;
                 }
 
-                tbody.innerHTML = leaderboard.map((entry, index) => `
+                tbody.innerHTML = leaderboard.map((entry, index) => {
+                    const progressColorClass = getProgressBarColor(entry.strength_gain);
+                    return `
                         <tr ${entry.username === currentUser.username ? 'style="background-color: #e3f2fd;"' : ''}>
                             <td data-label="#">${index + 1}</td>
                             <td data-label="Athlete">${entry.username}${entry.username === currentUser.username ? ' (You)' : ''}</td>
@@ -1853,12 +1885,12 @@
                             <td data-label="Last Workout">${entry.last_workout_date ? `<a href="#" onclick="showWorkoutModal(${entry.last_workout_id})">${new Date(entry.last_workout_date + 'T00:00:00').toLocaleDateString()}</a>` : 'N/A'}</td>
                             <td data-label="Progress">
                                 <div class="progress-bar">
-                                    <div class="progress-fill" style="width: ${Math.max((entry.strength_gain / maxGain) * 100, 5)}%"></div>
+                                    <div class="progress-fill ${progressColorClass}" style="width: ${Math.max((entry.strength_gain / maxGain) * 100, 5)}%"></div>
                                     <div class="progress-text">${entry.strength_gain}lb</div>
                                 </div>
                             </td>
                         </tr>
-                    `).join('');
+                    `}).join('');
             }
         } catch (error) {
             console.error('Failed to load leaderboard:', error);
