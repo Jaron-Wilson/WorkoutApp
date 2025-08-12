@@ -19,6 +19,7 @@ const db = new sqlite3.Database('./fitness_tracker.db', (err) => {
         console.error('Error opening database:', err);
     } else {
         console.log('Connected to SQLite database');
+        migrateDatabase();
         initializeDatabase();
     }
 });
@@ -90,6 +91,27 @@ function initializeDatabase() {
         )`);
 
         createDefaultAdmin();
+    });
+}
+
+function migrateDatabase() {
+    db.all("PRAGMA table_info(user_maxes)", (err, columns) => {
+        if (err) {
+            console.error('Error getting table info:', err);
+            return;
+        }
+
+        const columnExists = columns.some(col => col.name === 'last_max_update_date');
+
+        if (!columnExists) {
+            db.run("ALTER TABLE user_maxes ADD COLUMN last_max_update_date DATE", (err) => {
+                if (err) {
+                    console.error('Error adding column:', err);
+                } else {
+                    console.log('Column last_max_update_date added to user_maxes table');
+                }
+            });
+        }
     });
 }
 
@@ -496,13 +518,30 @@ app.post('/api/user/checkin', authenticateToken, (req, res) => {
 
 // Get leaderboard endpoint
 app.get('/api/leaderboard', authenticateToken, (req, res) => {
-    db.all(`SELECT u.id, u.username, u.current_weight, u.starting_weight,
-                   COALESCE(SUM(um.current_max - um.starting_max), 0) as strength_gain
-            FROM users u
-            LEFT JOIN user_maxes um ON u.id = um.user_id
-            WHERE u.is_admin = 0
-            GROUP BY u.id, u.username, u.current_weight, u.starting_weight
-            ORDER BY strength_gain DESC`,
+    db.all(`
+        SELECT 
+            u.id, 
+            u.username, 
+            u.current_weight, 
+            u.starting_weight,
+            COALESCE(SUM(um.current_max - um.starting_max), 0) as strength_gain,
+            w_stats.workout_count,
+            w_stats.last_workout_id,
+            w_stats.last_workout_date
+        FROM users u
+        LEFT JOIN user_maxes um ON u.id = um.user_id
+        LEFT JOIN (
+            SELECT 
+                user_id, 
+                COUNT(id) as workout_count, 
+                MAX(id) as last_workout_id,
+                MAX(workout_date) as last_workout_date 
+            FROM workouts 
+            GROUP BY user_id
+        ) w_stats ON u.id = w_stats.user_id
+        WHERE u.is_admin = 0
+        GROUP BY u.id, u.username, u.current_weight, u.starting_weight
+        ORDER BY strength_gain DESC`,
         (err, users) => {
             if (err) {
                 return res.status(500).json({ error: 'Failed to get leaderboard' });
@@ -511,6 +550,38 @@ app.get('/api/leaderboard', authenticateToken, (req, res) => {
         }
     );
 });
+
+// Get specific workout for modal
+app.get('/api/workout/:id', authenticateToken, (req, res) => {
+    const workoutId = req.params.id;
+
+    db.all(`SELECT w.workout_date, we.exercise_name, we.weight, we.sets, we.reps, u.username
+            FROM workouts w
+            JOIN workout_exercises we ON w.id = we.workout_id
+            JOIN users u ON w.user_id = u.id
+            WHERE w.id = ?`,
+        [workoutId],
+        (err, rows) => {
+            if (err || rows.length === 0) {
+                return res.status(404).json({ error: 'Workout not found' });
+            }
+            
+            const workoutDetails = {
+                username: rows[0].username,
+                date: rows[0].workout_date,
+                exercises: rows.map(r => ({
+                    exercise: r.exercise_name,
+                    weight: r.weight,
+                    sets: r.sets,
+                    reps: r.reps
+                }))
+            };
+
+            res.json(workoutDetails);
+        }
+    );
+});
+
 
 // Admin endpoints
 app.get('/api/admin/users', authenticateToken, requireAdmin, (req, res) => {

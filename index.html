@@ -119,20 +119,47 @@
             margin: 0 5px 0 0;
         }
 
-        .nav {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
+        .nav-container {
+            background: white;
+            border-radius: 15px;
+            padding: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             position: sticky;
             top: 10px;
             z-index: 100;
         }
 
-        .nav .btn {
-            margin-bottom: 0;
+        .nav-tabs {
+            display: flex;
+            justify-content: space-around;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 5px;
+        }
+
+        .nav-tab {
+            flex: 1;
             padding: 12px 8px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
             font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            border: none;
+            background: transparent;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .nav-tab:hover:not(.active) {
+            background: #e9ecef;
         }
 
         .hidden {
@@ -705,6 +732,31 @@
 
         /* Extra small screens */
         @media (max-width: 480px) {
+            .leaderboard table thead {
+                display: none;
+            }
+            .leaderboard table, .leaderboard table tbody, .leaderboard table tr, .leaderboard table td {
+                display: block;
+                width: 100%;
+            }
+            .leaderboard table tr {
+                margin-bottom: 15px;
+            }
+            .leaderboard table td {
+                text-align: right;
+                padding-left: 50%;
+                position: relative;
+            }
+            .leaderboard table td::before {
+                content: attr(data-label);
+                position: absolute;
+                left: 0;
+                width: 50%;
+                padding-left: 15px;
+                font-weight: bold;
+                text-align: left;
+            }
+
             .header h1 {
                 font-size: 1.5em;
             }
@@ -837,14 +889,16 @@
             <div style="clear: both;"></div>
         </div>
 
-        <div class="nav">
-            <button class="btn" onclick="showSection('dashboard')">Dashboard</button>
-            <button class="btn" onclick="showSection('calendar')">Calendar</button>
-            <button class="btn" onclick="showSection('maxes')">Maxes</button>
-            <button class="btn" onclick="showSection('daily')">Workout</button>
-            <button class="btn" onclick="showSection('weekly')">Check-in</button>
-            <button class="btn" onclick="showSection('competition')">Leaderboard</button>
-            <button class="btn" onclick="showSection('admin')" id="admin-btn" class="hidden">Admin</button>
+        <div class="nav-container">
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showSection('dashboard')">Dashboard</button>
+                <button class="nav-tab" onclick="showSection('calendar')">Calendar</button>
+                <button class="nav-tab" onclick="showSection('maxes')">Maxes</button>
+                <button class="nav-tab" onclick="showSection('daily')">Workout</button>
+                <button class="nav-tab" onclick="showSection('weekly')">Check-in</button>
+                <button class="nav-tab" onclick="showSection('competition')">Leaderboard</button>
+                <button class="nav-tab" onclick="showSection('admin')" id="admin-btn" class="hidden">Admin</button>
+            </div>
         </div>
 
         <!-- Dashboard Section -->
@@ -1057,6 +1111,8 @@
                         <th>#</th>
                         <th>Athlete</th>
                         <th>Gain</th>
+                        <th>Workouts</th>
+                        <th>Last Workout</th>
                         <th>Progress</th>
                     </tr>
                     </thead>
@@ -1147,6 +1203,15 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Workout Modal -->
+<div id="workout-modal" class="modal hidden">
+    <div class="modal-content">
+        <h2 id="workout-modal-title">Workout Details</h2>
+        <div id="workout-modal-body"></div>
+        <button class="btn" onclick="closeWorkoutModal()">Close</button>
     </div>
 </div>
 
@@ -1440,6 +1505,12 @@
         // Show selected section
         document.getElementById(section + '-section').classList.remove('hidden');
         currentSection = section;
+
+        // Update active tab
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`.nav-tab[onclick="showSection('${section}')"]`).classList.add('active');
 
         // Update section-specific data
         switch(section) {
@@ -1769,16 +1840,18 @@
                 const tbody = document.getElementById('leaderboard-body');
 
                 if (leaderboard.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">No competitors yet!</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No competitors yet!</td></tr>';
                     return;
                 }
 
                 tbody.innerHTML = leaderboard.map((entry, index) => `
                         <tr ${entry.username === currentUser.username ? 'style="background-color: #e3f2fd;"' : ''}>
-                            <td>${index + 1}</td>
-                            <td>${entry.username}${entry.username === currentUser.username ? ' (You)' : ''}</td>
-                            <td>${entry.strength_gain}lb</td>
-                            <td>
+                            <td data-label="#">${index + 1}</td>
+                            <td data-label="Athlete">${entry.username}${entry.username === currentUser.username ? ' (You)' : ''}</td>
+                            <td data-label="Gain">${entry.strength_gain}lb</td>
+                            <td data-label="Workouts">${entry.workout_count}</td>
+                            <td data-label="Last Workout">${entry.last_workout_date ? `<a href="#" onclick="showWorkoutModal(${entry.last_workout_id})">${new Date(entry.last_workout_date + 'T00:00:00').toLocaleDateString()}</a>` : 'N/A'}</td>
+                            <td data-label="Progress">
                                 <div class="progress-bar">
                                     <div class="progress-fill" style="width: ${Math.max((entry.strength_gain / maxGain) * 100, 5)}%"></div>
                                     <div class="progress-text">${entry.strength_gain}lb</div>
@@ -1790,6 +1863,35 @@
         } catch (error) {
             console.error('Failed to load leaderboard:', error);
         }
+    }
+
+    async function showWorkoutModal(workoutId) {
+        try {
+            const { response, data } = await apiCall(`/api/workout/${workoutId}`);
+
+            if (response.ok) {
+                const modalTitle = document.getElementById('workout-modal-title');
+                const modalBody = document.getElementById('workout-modal-body');
+
+                modalTitle.textContent = `Workout by ${data.username} on ${new Date(data.date + 'T00:00:00').toLocaleDateString()}`;
+
+                modalBody.innerHTML = data.exercises.map(ex => `
+                    <div class="workout-item">
+                        <div class="exercise-detail">${ex.exercise}: ${ex.weight}lbs x ${ex.sets}x${ex.reps}</div>
+                    </div>
+                `).join('');
+
+                document.getElementById('workout-modal').classList.remove('hidden');
+            } else {
+                alert(data.error || 'Failed to load workout details');
+            }
+        } catch (error) {
+            console.error('Failed to load workout details:', error);
+        }
+    }
+
+    function closeWorkoutModal() {
+        document.getElementById('workout-modal').classList.add('hidden');
     }
 
     // Admin Panel

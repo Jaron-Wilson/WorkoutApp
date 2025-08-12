@@ -21,6 +21,9 @@ This document outlines the complete implementation of a secure, mobile-first fit
 - ✅ **Push Notifications** - Daily workout reminders with custom messages
 - ✅ **Reminder System** - Customizable notification times and messages
 - ✅ **Admin User Deletion** - Secure user deletion with triple confirmation
+- ✅ **Improved Leaderboard** - More informative and mobile-friendly leaderboard
+- ✅ **Workout Modal** - View workout details from the leaderboard
+- ✅ **Modern Navigation** - Tab-based navigation for a better user experience
 
 ## 🏗️ Technical Architecture
 
@@ -38,6 +41,7 @@ server.js - Main Express server with API endpoints
 │   └── POST /api/user/checkin - Weekly progress check-ins
 ├── Competition System
 │   └── GET /api/leaderboard - Strength gain rankings
+│   └── GET /api/workout/:id - Get a specific workout
 └── Admin Panel
     ├── GET /api/admin/users - User management list
     ├── GET /api/admin/stats - System statistics  
@@ -132,11 +136,12 @@ index.html - Single-page application
 │   ├── Daily workout logging
 │   ├── Weekly check-ins
 │   └── Competition leaderboard with enhanced progress bars
+│   └── Workout Modal to view workout details
 ├── Notification System
 │   ├── Push notification permission management
 │   ├── Daily workout reminder scheduling
 │   ├── Customizable reminder times & messages
-│   └── Smart notifications (only when no workout logged)
+│   └── Smart notifications (only when no workout logged that day)
 └── Admin Panel
     ├── User management table
     ├── Password reset controls
@@ -288,7 +293,7 @@ All functionality tested and verified:
 - ✅ **Password Hashing:** bcrypt with salt rounds working
 - ✅ **Admin Functions:** Password reset and edit working
 - ✅ **Data Persistence:** All data stored in SQLite database
-- ✅ **API Endpoints:** All 12 endpoints responding correctly
+- ✅ **API Endpoints:** All 13 endpoints responding correctly
 - ✅ **Mobile Experience:** Persistent login across mobile sessions
 
 ## 🔧 Configuration Files
@@ -377,6 +382,7 @@ const strengthGain = Object.keys(user.maxes).reduce((total, exercise) => {
 - **Fair Competition:** Based on improvement, not absolute strength
 - **Progress Tracking:** Visual progress bars show relative gains
 - **User Highlighting:** Current user highlighted in leaderboard
+- **Workout Details:** Click on a workout to see the details in a modal
 
 ### Workout Tracking
 - **Daily Logs:** Detailed exercise, weight, sets, reps
