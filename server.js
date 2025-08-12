@@ -90,16 +90,6 @@ function initializeDatabase() {
             FOREIGN KEY (reset_by_admin_id) REFERENCES users (id)
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS user_goals (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            goal_text TEXT NOT NULL,
-            target_value INTEGER NOT NULL,
-            current_value INTEGER DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )`);
-
         createDefaultAdmin();
     });
 }
@@ -390,37 +380,32 @@ app.get('/api/user/data', authenticateToken, (req, res) => {
                     db.all('SELECT * FROM weekly_checkins WHERE user_id = ? ORDER BY checkin_date DESC', [userId], (err, checkins) => {
                         if (err) checkins = [];
 
-                        db.all('SELECT goal_text as text, target_value as target, current_value as current FROM user_goals WHERE user_id = ?', [userId], (err, goals) => {
-                            if (err) goals = [];
+                        const maxesObj = {};
+                        const maxUpdateDates = {};
+                        maxes.forEach(max => {
+                            maxesObj[max.exercise_name] = {
+                                starting: max.starting_max,
+                                current: max.current_max
+                            };
+                            if (max.last_max_update_date) {
+                                maxUpdateDates[max.last_max_update_date] = true;
+                            }
+                        });
 
-                            const maxesObj = {};
-                            const maxUpdateDates = {};
-                            maxes.forEach(max => {
-                                maxesObj[max.exercise_name] = {
-                                    starting: max.starting_max,
-                                    current: max.current_max
-                                };
-                                if (max.last_max_update_date) {
-                                    maxUpdateDates[max.last_max_update_date] = true;
-                                }
-                            });
-
-                            res.json({
-                                user: {
-                                    id: user.id,
-                                    username: user.username,
-                                    isAdmin: Boolean(user.is_admin),
-                                    height: user.height,
-                                    startingWeight: user.starting_weight,
-                                    currentWeight: user.current_weight,
-                                    joinDate: user.join_date
-                                },
-                                maxes: maxesObj,
-                                maxUpdateDates: Object.keys(maxUpdateDates),
-                                workouts: Object.values(workouts),
-                                weeklyCheckins: checkins,
-                                goals: goals
-                            });
+                        res.json({
+                            user: {
+                                id: user.id,
+                                username: user.username,
+                                isAdmin: Boolean(user.is_admin),
+                                height: user.height,
+                                startingWeight: user.starting_weight,
+                                currentWeight: user.current_weight,
+                                joinDate: user.join_date
+                            },
+                            maxes: maxesObj,
+                            maxUpdateDates: Object.keys(maxUpdateDates),
+                            workouts: Object.values(workouts),
+                            weeklyCheckins: checkins
                         });
                     });
                 });
@@ -531,37 +516,6 @@ app.post('/api/user/checkin', authenticateToken, (req, res) => {
     res.json({ message: 'Weekly check-in saved successfully' });
 });
 
-// Save goals endpoint
-app.post('/api/user/goals', authenticateToken, (req, res) => {
-    const userId = req.user.id;
-    const { goals } = req.body;
-
-    db.serialize(() => {
-        // Clear existing goals for simplicity.
-        // A more robust solution might update existing goals.
-        db.run('DELETE FROM user_goals WHERE user_id = ?', [userId], (err) => {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to clear old goals' });
-            }
-
-            if (goals && goals.length > 0) {
-                const stmt = db.prepare('INSERT INTO user_goals (user_id, goal_text, target_value, current_value) VALUES (?, ?, ?, ?)');
-                goals.forEach(goal => {
-                    stmt.run(userId, goal.text, goal.target, goal.current);
-                });
-                stmt.finalize((err) => {
-                    if (err) {
-                        return res.status(500).json({ error: 'Failed to save new goals' });
-                    }
-                    res.json({ message: 'Goals saved successfully' });
-                });
-            } else {
-                res.json({ message: 'Goals cleared successfully' });
-            }
-        });
-    });
-});
-
 // Get leaderboard endpoint
 app.get('/api/leaderboard', authenticateToken, (req, res) => {
     db.all(`
@@ -573,8 +527,7 @@ app.get('/api/leaderboard', authenticateToken, (req, res) => {
             COALESCE(SUM(um.current_max - um.starting_max), 0) as strength_gain,
             w_stats.workout_count,
             w_stats.last_workout_id,
-            w_stats.last_workout_date,
-            c_stats.last_checkin_date
+            w_stats.last_workout_date
         FROM users u
         LEFT JOIN user_maxes um ON u.id = um.user_id
         LEFT JOIN (
@@ -586,15 +539,8 @@ app.get('/api/leaderboard', authenticateToken, (req, res) => {
             FROM workouts 
             GROUP BY user_id
         ) w_stats ON u.id = w_stats.user_id
-        LEFT JOIN (
-            SELECT 
-                user_id, 
-                MAX(checkin_date) as last_checkin_date 
-            FROM weekly_checkins 
-            GROUP BY user_id
-        ) c_stats ON u.id = c_stats.user_id
         WHERE u.is_admin = 0
-        GROUP BY u.id, u.username, u.current_weight, u.starting_weight, c_stats.last_checkin_date
+        GROUP BY u.id, u.username, u.current_weight, u.starting_weight
         ORDER BY strength_gain DESC`,
         (err, users) => {
             if (err) {

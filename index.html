@@ -481,18 +481,6 @@
             color: #721c24;
         }
 
-        .goal-item {
-            background: #f8f9fa;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 10px;
-            border-left: 4px solid #ffc107;
-        }
-
-        .goal-item p {
-            margin: 0 0 10px;
-        }
-
         /* Calendar Styles */
         .calendar-container {
             background: white;
@@ -829,23 +817,6 @@
                 position: -webkit-sticky;
             }
         }
-
-        /* Admin Panel Mobile */
-        @media (max-width: 480px) {
-            #admin-users-list .workout-item > div {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            #admin-users-list .action-buttons {
-                justify-content: flex-start;
-            }
-
-            #admin-users-list .action-buttons .btn {
-                width: 100%;
-                margin-bottom: 10px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -972,21 +943,6 @@
             <h3>Recent Activity</h3>
             <div id="recent-workouts">
                 <p>No recent workouts logged.</p>
-            </div>
-
-            <!-- Goals Section -->
-            <div id="goals-section" style="margin-top: 20px;">
-                <h3>🎯 Your Goals</h3>
-                <div id="goals-list">
-                    <p>No goals set yet. Add one below!</p>
-                </div>
-                <div class="form-group" style="margin-top: 20px;">
-                    <input type="text" id="new-goal-text" placeholder="e.g., Workout 3 times a week" style="margin-bottom: 10px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <input type="number" id="new-goal-target" placeholder="Target (e.g., 3)">
-                        <button class="btn btn-small" onclick="addGoal()" style="width: 100%; height: 50px; margin:0;">Add Goal</button>
-                    </div>
-                </div>
             </div>
 
             <!-- Notification Settings -->
@@ -1178,8 +1134,7 @@
                         <th>Gain</th>
                         <th>Workouts</th>
                         <th>Last Workout</th>
-                        <th>Last Check-in</th>
-                        <th>Strength-Progress</th>
+                        <th>Progress</th>
                     </tr>
                     </thead>
                     <tbody id="leaderboard-body">
@@ -1324,7 +1279,6 @@
                 currentUser.maxUpdateDates = userData.maxUpdateDates || [];
                 currentUser.workouts = userData.workouts;
                 currentUser.weeklyCheckins = userData.weeklyCheckins;
-                currentUser.goals = userData.goals || [];
                 
                 document.getElementById('auth-screen').classList.add('hidden');
                 document.getElementById('main-screen').classList.remove('hidden');
@@ -1440,7 +1394,6 @@
                 currentUser.maxUpdateDates = data.maxUpdateDates || [];
                 currentUser.workouts = data.workouts;
                 currentUser.weeklyCheckins = data.weeklyCheckins;
-                currentUser.goals = data.goals || [];
             }
         } catch (error) {
             console.error('Failed to load user data:', error);
@@ -1611,8 +1564,6 @@
         const strengthGain = calculateStrengthGain(currentUser);
         document.getElementById('strength-gain').textContent = strengthGain + 'lb';
 
-        updateGoalsList();
-
         // Recent workouts
         const recentWorkouts = currentUser.workouts.slice(-3).reverse();
         const recentContainer = document.getElementById('recent-workouts');
@@ -1629,77 +1580,6 @@
                         ${workout.exercises.length > 3 ? `<div class="exercise-detail">+${workout.exercises.length - 3} more exercises</div>` : ''}
                     </div>
                 `).join('');
-        }
-    }
-
-    // Goals Functions
-    function updateGoalsList() {
-        const goalsList = document.getElementById('goals-list');
-        const goals = currentUser.goals || [];
-
-        if (goals.length === 0) {
-            goalsList.innerHTML = '<p>No goals set yet. Add one below!</p>';
-            return;
-        }
-
-        goalsList.innerHTML = goals.map((goal, index) => `
-            <div class="goal-item">
-                <p>${goal.text}</p>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${Math.min((goal.current / goal.target) * 100, 100)}%;"></div>
-                    <div class="progress-text">${goal.current} / ${goal.target}</div>
-                </div>
-                <button class="btn btn-danger btn-small" onclick="removeGoal(${index})" style="margin-top: 10px;">Remove</button>
-            </div>
-        `).join('');
-    }
-
-    function addGoal() {
-        const text = document.getElementById('new-goal-text').value.trim();
-        const target = parseInt(document.getElementById('new-goal-target').value);
-
-        if (!text || !target) {
-            alert('Please enter a goal description and a target value.');
-            return;
-        }
-
-        const newGoal = {
-            text,
-            target,
-            current: 0, // Assuming goals start at 0
-            createdAt: new Date().toISOString()
-        };
-
-        if (!currentUser.goals) {
-            currentUser.goals = [];
-        }
-        currentUser.goals.push(newGoal);
-
-        // Clear inputs
-        document.getElementById('new-goal-text').value = '';
-        document.getElementById('new-goal-target').value = '';
-
-        updateGoalsList();
-        saveGoals();
-    }
-
-    function removeGoal(index) {
-        if (confirm('Are you sure you want to remove this goal?')) {
-            currentUser.goals.splice(index, 1);
-            updateGoalsList();
-            saveGoals();
-        }
-    }
-
-    async function saveGoals() {
-        try {
-            await apiCall('/api/user/goals', {
-                method: 'POST',
-                body: JSON.stringify({ goals: currentUser.goals })
-            });
-        } catch (error) {
-            console.error('Failed to save goals:', error);
-            alert('Failed to save goals. Please try again.');
         }
     }
 
@@ -2003,8 +1883,7 @@
                             <td data-label="Gain">${entry.strength_gain}lb</td>
                             <td data-label="Workouts">${entry.workout_count}</td>
                             <td data-label="Last Workout">${entry.last_workout_date ? `<a href="#" onclick="showWorkoutModal(${entry.last_workout_id})">${new Date(entry.last_workout_date + 'T00:00:00').toLocaleDateString()}</a>` : 'N/A'}</td>
-                            <td data-label="Last Check-in">${entry.last_checkin_date ? new Date(entry.last_checkin_date + 'T00:00:00').toLocaleDateString() : 'N/A'}</td>
-                            <td data-label="Strength-Progress">
+                            <td data-label="Progress">
                                 <div class="progress-bar">
                                     <div class="progress-fill ${progressColorClass}" style="width: ${Math.max((entry.strength_gain / maxGain) * 100, 5)}%"></div>
                                     <div class="progress-text">${entry.strength_gain}lb</div>
