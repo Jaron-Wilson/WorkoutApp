@@ -100,6 +100,28 @@ function initializeDatabase() {
             FOREIGN KEY (user_id) REFERENCES users (id)
         )`);
 
+        db.run(`CREATE TABLE IF NOT EXISTS app_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            setting_key TEXT UNIQUE NOT NULL,
+            setting_value TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS user_activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action_type TEXT NOT NULL,
+            action_details TEXT,
+            entity_type TEXT,
+            entity_id INTEGER,
+            old_value TEXT,
+            new_value TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
+
         createDefaultAdmin();
     });
 }
@@ -131,14 +153,33 @@ function migrateDatabase() {
             return;
         }
 
-        const columnExists = columns.some(col => col.name === 'full_name');
+        const fullNameExists = columns.some(col => col.name === 'full_name');
+        const hiddenFromLeaderboardExists = columns.some(col => col.name === 'hidden_from_leaderboard');
 
-        if (!columnExists) {
+        if (!fullNameExists) {
             db.run("ALTER TABLE users ADD COLUMN full_name TEXT", (err) => {
                 if (err) {
                     console.error('Error adding full_name column to users table:', err);
                 } else {
                     console.log('Column full_name added to users table');
+                }
+            });
+        }
+
+        if (!hiddenFromLeaderboardExists) {
+            db.run("ALTER TABLE users ADD COLUMN hidden_from_leaderboard BOOLEAN DEFAULT 0", (err) => {
+                if (err) {
+                    console.error('Error adding hidden_from_leaderboard column to users table:', err);
+                } else {
+                    console.log('Column hidden_from_leaderboard added to users table');
+                    // Set admin account as hidden by default
+                    db.run("UPDATE users SET hidden_from_leaderboard = 1 WHERE username = 'admin'", (err) => {
+                        if (err) {
+                            console.error('Error setting admin as hidden:', err);
+                        } else {
+                            console.log('Admin account set as hidden from leaderboard');
+                        }
+                    });
                 }
             });
         }
@@ -196,6 +237,22 @@ function requireAdmin(req, res, next) {
         return res.status(403).json({ error: 'Admin access required' });
     }
     next();
+}
+
+function logUserActivity(userId, actionType, actionDetails, entityType = null, entityId = null, oldValue = null, newValue = null, req = null) {
+    const ipAddress = req ? req.ip || req.connection.remoteAddress : null;
+    const userAgent = req ? req.get('User-Agent') : null;
+    
+    db.run(`INSERT INTO user_activity_log 
+            (user_id, action_type, action_details, entity_type, entity_id, old_value, new_value, ip_address, user_agent) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userId, actionType, actionDetails, entityType, entityId, oldValue, newValue, ipAddress, userAgent],
+        (err) => {
+            if (err) {
+                console.error('Error logging user activity:', err);
+            }
+        }
+    );
 }
 
 // Register endpoint
@@ -441,7 +498,8 @@ app.get('/api/user/data', authenticateToken, (req, res) => {
                                     height: user.height,
                                     startingWeight: user.starting_weight,
                                     currentWeight: user.current_weight,
-                                    joinDate: user.join_date
+                                    joinDate: user.join_date,
+                                    hiddenFromLeaderboard: Boolean(user.hidden_from_leaderboard)
                                 },
                                 maxes: maxesObj,
                                 maxUpdateDates: Object.keys(maxUpdateDates),
@@ -460,14 +518,13 @@ app.get('/api/user/data', authenticateToken, (req, res) => {
 // Save maxes endpoint
 app.post('/api/user/maxes', authenticateToken, (req, res) => {
     const userId = req.user.id;
-    const { maxes } = req.body;
+    const { maxes, date } = req.body;
 
-    // Get current date for max updates
-    const now = new Date();
-    const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const updateDate = localDate.getFullYear() + '-' + 
-                      String(localDate.getMonth() + 1).padStart(2, '0') + '-' + 
-                      String(localDate.getDate()).padStart(2, '0');
+    if (!date) {
+        return res.status(400).json({ error: 'Date is required for max updates' });
+    }
+
+    const updateDate = date;
 
     db.serialize(() => {
         // First get existing maxes to check for changes
@@ -503,6 +560,16 @@ app.post('/api/user/maxes', authenticateToken, (req, res) => {
                     });
             });
 
+            // Log activity for each changed max
+            Object.keys(maxes).forEach(exercise => {
+                const oldMax = existingMaxes[exercise] || 0;
+                const newMax = maxes[exercise].current;
+                
+                if (oldMax !== newMax) {
+                    logUserActivity(userId, 'UPDATE_MAX', `Updated ${exercise} max from ${oldMax}lbs to ${newMax}lbs`, 'max', null, oldMax.toString(), newMax.toString(), req);
+                }
+            });
+            
             res.json({ message: 'Maxes saved successfully' });
         });
     });
@@ -530,6 +597,10 @@ app.post('/api/user/workout', authenticateToken, (req, res) => {
                 if (err) {
                     return res.status(500).json({ error: 'Failed to save workout exercises' });
                 }
+                
+                // Log activity
+                logUserActivity(userId, 'CREATE_WORKOUT', `Added workout with ${exercises.length} exercises on ${date}`, 'workout', workoutId, null, JSON.stringify(exercises), req);
+                
                 res.json({ message: 'Workout saved successfully' });
             });
         }
@@ -539,10 +610,11 @@ app.post('/api/user/workout', authenticateToken, (req, res) => {
 // Save weekly checkin endpoint
 app.post('/api/user/checkin', authenticateToken, (req, res) => {
     const userId = req.user.id;
-    const { weight, feeling, notes } = req.body;
+    const { date, weight, feeling, notes } = req.body;
     
-    // Use UTC date to avoid timezone issues and ensure consistency
-    const date = new Date().toISOString().split('T')[0];
+    if (!date || !weight || !feeling) {
+        return res.status(400).json({ error: 'Date, weight, and feeling are required' });
+    }
 
     db.serialize(() => {
         db.run('INSERT INTO weekly_checkins (user_id, checkin_date, weight, feeling, notes) VALUES (?, ?, ?, ?, ?)',
@@ -591,7 +663,8 @@ app.get('/api/leaderboard', authenticateToken, (req, res) => {
     db.all(`
         SELECT 
             u.id, 
-            u.username, 
+            u.username,
+            u.full_name, 
             u.current_weight, 
             u.starting_weight,
             COALESCE(SUM(um.current_max - um.starting_max), 0) as strength_gain,
@@ -617,7 +690,7 @@ app.get('/api/leaderboard', authenticateToken, (req, res) => {
             FROM weekly_checkins 
             GROUP BY user_id
         ) c_stats ON u.id = c_stats.user_id
-        WHERE u.is_admin = 0
+        WHERE u.is_admin = 0 AND (u.hidden_from_leaderboard = 0 OR u.hidden_from_leaderboard IS NULL)
         GROUP BY u.id, u.username, u.current_weight, u.starting_weight, c_stats.last_checkin_date
         ORDER BY strength_gain DESC`,
         (err, users) => {
@@ -663,7 +736,7 @@ app.get('/api/workout/:id', authenticateToken, (req, res) => {
 
 // Admin endpoints
 app.get('/api/admin/users', authenticateToken, requireAdmin, (req, res) => {
-    db.all(`SELECT u.id, u.username, u.join_date, u.current_weight, u.starting_weight,
+    db.all(`SELECT u.id, u.username, u.full_name, u.join_date, u.current_weight, u.starting_weight, u.hidden_from_leaderboard,
                    COALESCE(SUM(um.current_max - um.starting_max), 0) as strength_gain,
                    COUNT(DISTINCT w.id) as workout_count,
                    CASE WHEN rt.id IS NOT NULL THEN 1 ELSE 0 END as has_reset_token
@@ -672,7 +745,7 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, (req, res) => {
             LEFT JOIN workouts w ON u.id = w.user_id
             LEFT JOIN reset_tokens rt ON u.id = rt.user_id
             WHERE u.is_admin = 0
-            GROUP BY u.id, u.username, u.join_date, u.current_weight, u.starting_weight, rt.id`,
+            GROUP BY u.id, u.username, u.join_date, u.current_weight, u.starting_weight, u.hidden_from_leaderboard, rt.id`,
         (err, users) => {
             if (err) {
                 return res.status(500).json({ error: 'Failed to get users' });
@@ -809,6 +882,491 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, (req, res) => {
                 });
             });
         });
+    });
+});
+
+app.post('/api/admin/change-password', authenticateToken, requireAdmin, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const adminId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    db.get('SELECT * FROM users WHERE id = ? AND is_admin = 1', [adminId], async (err, admin) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!admin) {
+            return res.status(404).json({ error: 'Admin user not found' });
+        }
+
+        const isValidPassword = await bcrypt.compare(currentPassword, admin.password_hash);
+        
+        if (!isValidPassword) {
+            return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        db.run('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [hashedPassword, adminId], function(err) {
+                if (err) {
+                    console.error('Error updating admin password:', err);
+                    return res.status(500).json({ error: 'Failed to update password' });
+                }
+                
+                res.json({ message: 'Admin password updated successfully' });
+            }
+        );
+    });
+});
+
+app.post('/api/admin/toggle-workout-reminders', authenticateToken, requireAdmin, (req, res) => {
+    const { enabled } = req.body;
+
+    db.run(`INSERT OR REPLACE INTO app_settings (setting_key, setting_value, updated_at) 
+            VALUES ('workout_reminders_enabled', ?, CURRENT_TIMESTAMP)`,
+        [enabled ? '1' : '0'], function(err) {
+            if (err) {
+                console.error('Error updating workout reminders setting:', err);
+                return res.status(500).json({ error: 'Failed to update setting' });
+            }
+            
+            res.json({ message: 'Workout reminders setting updated successfully' });
+        }
+    );
+});
+
+app.get('/api/settings', (req, res) => {
+    db.get('SELECT setting_value FROM app_settings WHERE setting_key = ?', 
+        ['workout_reminders_enabled'], (err, row) => {
+            if (err) {
+                console.error('Error getting settings:', err);
+                return res.status(500).json({ error: 'Failed to get settings' });
+            }
+            
+            const workoutRemindersEnabled = row ? row.setting_value === '1' : false;
+            
+            res.json({
+                workoutRemindersEnabled
+            });
+        }
+    );
+});
+
+// Delete workout endpoint
+app.delete('/api/user/workout/:id', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const workoutId = req.params.id;
+
+    // First check if the workout belongs to the user
+    db.get('SELECT id FROM workouts WHERE id = ? AND user_id = ?', [workoutId, userId], (err, workout) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!workout) {
+            return res.status(404).json({ error: 'Workout not found or access denied' });
+        }
+
+        // Delete workout and associated exercises
+        db.serialize(() => {
+            db.run('DELETE FROM workout_exercises WHERE workout_id = ?', [workoutId]);
+            db.run('DELETE FROM workouts WHERE id = ?', [workoutId], function(err) {
+                if (err) {
+                    console.error('Error deleting workout:', err);
+                    return res.status(500).json({ error: 'Failed to delete workout' });
+                }
+                
+                // Log activity
+                logUserActivity(userId, 'DELETE_WORKOUT', `Deleted workout ID ${workoutId}`, 'workout', workoutId, null, null, req);
+                
+                res.json({ message: 'Workout deleted successfully' });
+            });
+        });
+    });
+});
+
+// Delete check-in endpoint
+app.delete('/api/user/checkin', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const { date } = req.body;
+
+    if (!date) {
+        return res.status(400).json({ error: 'Date is required' });
+    }
+
+    db.run('DELETE FROM weekly_checkins WHERE user_id = ? AND checkin_date = ?', 
+        [userId, date], function(err) {
+            if (err) {
+                console.error('Error deleting check-in:', err);
+                return res.status(500).json({ error: 'Failed to delete check-in' });
+            }
+            
+            if (this.changes === 0) {
+                return res.status(404).json({ error: 'Check-in not found' });
+            }
+            
+            res.json({ message: 'Check-in deleted successfully' });
+        }
+    );
+});
+
+// Admin reset user data endpoint
+app.post('/api/admin/reset-user-data', authenticateToken, requireAdmin, (req, res) => {
+    const { username } = req.body;
+
+    if (!username) {
+        return res.status(400).json({ error: 'Username is required' });
+    }
+
+    // Prevent resetting admin user
+    if (username === 'admin') {
+        return res.status(400).json({ error: 'Cannot reset admin user data' });
+    }
+
+    db.get('SELECT id FROM users WHERE username = ? AND is_admin = 0', [username], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found or is admin' });
+        }
+
+        const userId = user.id;
+
+        // Delete all user data but keep the account
+        db.serialize(() => {
+            db.run('DELETE FROM workout_exercises WHERE workout_id IN (SELECT id FROM workouts WHERE user_id = ?)', [userId]);
+            db.run('DELETE FROM workouts WHERE user_id = ?', [userId]);
+            db.run('DELETE FROM weekly_checkins WHERE user_id = ?', [userId]);
+            db.run('DELETE FROM user_maxes WHERE user_id = ?', [userId]);
+            db.run('DELETE FROM user_goals WHERE user_id = ?', [userId], function(err) {
+                if (err) {
+                    console.error('Error resetting user data:', err);
+                    return res.status(500).json({ error: 'Failed to reset user data' });
+                }
+                
+                res.json({ message: `All data for user ${username} has been reset successfully` });
+            });
+        });
+    });
+});
+
+// Get day details endpoint
+app.get('/api/user/day-details/:date', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const date = req.params.date;
+
+    db.serialize(() => {
+        // Get workouts for the day
+        db.all(`SELECT w.*, we.exercise_name, we.weight, we.sets, we.reps 
+                FROM workouts w 
+                LEFT JOIN workout_exercises we ON w.id = we.workout_id 
+                WHERE w.user_id = ? AND w.workout_date = ?
+                ORDER BY w.id`, [userId, date], (err, workoutRows) => {
+            
+            const workouts = {};
+            workoutRows.forEach(row => {
+                if (!workouts[row.id]) {
+                    workouts[row.id] = {
+                        id: row.id,
+                        date: row.workout_date,
+                        exercises: [],
+                        timestamp: row.created_at
+                    };
+                }
+                if (row.exercise_name) {
+                    workouts[row.id].exercises.push({
+                        exercise: row.exercise_name,
+                        weight: row.weight,
+                        sets: row.sets,
+                        reps: row.reps
+                    });
+                }
+            });
+
+            // Get check-ins for the day
+            db.all('SELECT * FROM weekly_checkins WHERE user_id = ? AND checkin_date = ?', 
+                [userId, date], (err, checkins) => {
+                
+                // Get max updates for the day
+                db.all('SELECT exercise_name, current_max FROM user_maxes WHERE user_id = ? AND last_max_update_date = ?', 
+                    [userId, date], (err, maxUpdates) => {
+                    
+                    res.json({
+                        workouts: Object.values(workouts),
+                        checkins: checkins || [],
+                        maxUpdates: maxUpdates || []
+                    });
+                });
+            });
+        });
+    });
+});
+
+// Edit max update endpoint
+app.put('/api/user/max-update', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const { exerciseName, date, newMax } = req.body;
+
+    if (!exerciseName || !date || newMax === undefined) {
+        return res.status(400).json({ error: 'Exercise name, date, and new max are required' });
+    }
+
+    if (isNaN(newMax) || newMax < 0) {
+        return res.status(400).json({ error: 'New max must be a valid positive number' });
+    }
+
+    // Get current max value first
+    db.get('SELECT current_max FROM user_maxes WHERE user_id = ? AND exercise_name = ?', 
+        [userId, exerciseName], (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: 'Database error' });
+            }
+            
+            const oldMax = row ? row.current_max : 0;
+            
+            // Update the max value for the exercise
+            db.run(`UPDATE user_maxes 
+                    SET current_max = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE user_id = ? AND exercise_name = ?`,
+                [newMax, userId, exerciseName], function(err) {
+                    if (err) {
+                        console.error('Error updating max:', err);
+                        return res.status(500).json({ error: 'Failed to update max' });
+                    }
+                    
+                    if (this.changes === 0) {
+                        return res.status(404).json({ error: 'Exercise not found' });
+                    }
+                    
+                    // Log activity
+                    logUserActivity(userId, 'EDIT_MAX', `Edited ${exerciseName} max from ${oldMax}lbs to ${newMax}lbs on ${date}`, 'max', null, oldMax.toString(), newMax.toString(), req);
+                    
+                    res.json({ message: 'Max updated successfully' });
+                }
+            );
+        }
+    );
+});
+
+// Delete max update endpoint
+app.delete('/api/user/max-update', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const { exerciseName, date } = req.body;
+
+    if (!exerciseName || !date) {
+        return res.status(400).json({ error: 'Exercise name and date are required' });
+    }
+
+    // Remove the max update date for this specific exercise
+    db.run(`UPDATE user_maxes 
+            SET last_max_update_date = NULL, updated_at = CURRENT_TIMESTAMP 
+            WHERE user_id = ? AND exercise_name = ? AND last_max_update_date = ?`,
+        [userId, exerciseName, date], function(err) {
+            if (err) {
+                console.error('Error deleting max update:', err);
+                return res.status(500).json({ error: 'Failed to delete max update' });
+            }
+            
+            if (this.changes === 0) {
+                return res.status(404).json({ error: 'Max update not found for this date' });
+            }
+            
+            // Log activity
+            logUserActivity(userId, 'DELETE_MAX_UPDATE', `Removed max update for ${exerciseName} on ${date}`, 'max', null, null, null, req);
+            
+            res.json({ message: 'Max update deleted successfully' });
+        }
+    );
+});
+
+// Get user activity log (admin only)
+app.get('/api/admin/user-activity/:username', authenticateToken, requireAdmin, (req, res) => {
+    const username = req.params.username;
+
+    db.get('SELECT id FROM users WHERE username = ?', [username], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        db.all(`SELECT ual.*, u.username 
+                FROM user_activity_log ual
+                JOIN users u ON ual.user_id = u.id
+                WHERE ual.user_id = ?
+                ORDER BY ual.created_at DESC 
+                LIMIT 100`, [user.id], (err, activities) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to get user activity' });
+            }
+
+            res.json(activities);
+        });
+    });
+});
+
+// Promote user to admin (admin only)
+app.post('/api/admin/promote-user', authenticateToken, requireAdmin, (req, res) => {
+    const { username } = req.body;
+    const adminId = req.user.id;
+
+    if (!username) {
+        return res.status(400).json({ error: 'Username is required' });
+    }
+
+    db.get('SELECT id, is_admin FROM users WHERE username = ?', [username], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        if (user.is_admin) {
+            return res.status(400).json({ error: 'User is already an admin' });
+        }
+
+        db.run('UPDATE users SET is_admin = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [user.id], function(err) {
+                if (err) {
+                    console.error('Error promoting user:', err);
+                    return res.status(500).json({ error: 'Failed to promote user' });
+                }
+
+                // Log activity for both users
+                logUserActivity(adminId, 'PROMOTE_USER', `Promoted ${username} to admin`, 'user', user.id, 'user', 'admin', req);
+                logUserActivity(user.id, 'PROMOTED_TO_ADMIN', `Promoted to admin by admin`, 'user', user.id, 'user', 'admin', req);
+
+                res.json({ message: `User ${username} has been promoted to admin` });
+            }
+        );
+    });
+});
+
+// Demote admin to user (admin only) 
+app.post('/api/admin/demote-user', authenticateToken, requireAdmin, (req, res) => {
+    const { username } = req.body;
+    const adminId = req.user.id;
+
+    if (!username) {
+        return res.status(400).json({ error: 'Username is required' });
+    }
+
+    // Prevent demoting the main admin user
+    if (username === 'admin') {
+        return res.status(400).json({ error: 'Cannot demote the main admin user' });
+    }
+
+    db.get('SELECT id, is_admin FROM users WHERE username = ?', [username], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        if (!user.is_admin) {
+            return res.status(400).json({ error: 'User is not an admin' });
+        }
+
+        db.run('UPDATE users SET is_admin = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [user.id], function(err) {
+                if (err) {
+                    console.error('Error demoting user:', err);
+                    return res.status(500).json({ error: 'Failed to demote user' });
+                }
+
+                // Log activity for both users
+                logUserActivity(adminId, 'DEMOTE_USER', `Demoted ${username} from admin to user`, 'user', user.id, 'admin', 'user', req);
+                logUserActivity(user.id, 'DEMOTED_FROM_ADMIN', `Demoted from admin by admin`, 'user', user.id, 'admin', 'user', req);
+
+                res.json({ message: `User ${username} has been demoted to regular user` });
+            }
+        );
+    });
+});
+
+// Toggle user's leaderboard visibility (user can hide themselves)
+app.post('/api/user/toggle-leaderboard-visibility', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const { hidden } = req.body;
+
+    if (typeof hidden !== 'boolean') {
+        return res.status(400).json({ error: 'Hidden parameter must be a boolean' });
+    }
+
+    db.run('UPDATE users SET hidden_from_leaderboard = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [hidden ? 1 : 0, userId], function(err) {
+            if (err) {
+                console.error('Error updating leaderboard visibility:', err);
+                return res.status(500).json({ error: 'Failed to update leaderboard visibility' });
+            }
+
+            const action = hidden ? 'hidden from' : 'shown on';
+            logUserActivity(userId, 'TOGGLE_LEADERBOARD_VISIBILITY', `User ${action} leaderboard`, 'user', userId, (!hidden).toString(), hidden.toString(), req);
+
+            res.json({ 
+                message: `Successfully ${hidden ? 'hidden from' : 'shown on'} leaderboard`,
+                hidden: hidden
+            });
+        }
+    );
+});
+
+// Admin toggle user's leaderboard visibility 
+app.post('/api/admin/toggle-user-leaderboard-visibility', authenticateToken, requireAdmin, (req, res) => {
+    const { username, hidden } = req.body;
+    const adminId = req.user.id;
+
+    if (!username) {
+        return res.status(400).json({ error: 'Username is required' });
+    }
+
+    if (typeof hidden !== 'boolean') {
+        return res.status(400).json({ error: 'Hidden parameter must be a boolean' });
+    }
+
+    db.get('SELECT id FROM users WHERE username = ?', [username], (err, user) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        db.run('UPDATE users SET hidden_from_leaderboard = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [hidden ? 1 : 0, user.id], function(err) {
+                if (err) {
+                    console.error('Error updating user leaderboard visibility:', err);
+                    return res.status(500).json({ error: 'Failed to update user leaderboard visibility' });
+                }
+
+                const action = hidden ? 'hidden from' : 'shown on';
+                logUserActivity(adminId, 'ADMIN_TOGGLE_USER_LEADERBOARD', `Admin set ${username} ${action} leaderboard`, 'user', user.id, (!hidden).toString(), hidden.toString(), req);
+                logUserActivity(user.id, 'LEADERBOARD_VISIBILITY_CHANGED', `Admin set user ${action} leaderboard`, 'user', user.id, (!hidden).toString(), hidden.toString(), req);
+
+                res.json({ 
+                    message: `Successfully set ${username} ${action} leaderboard`,
+                    username: username,
+                    hidden: hidden
+                });
+            }
+        );
     });
 });
 
