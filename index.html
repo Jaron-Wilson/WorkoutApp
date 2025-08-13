@@ -913,6 +913,10 @@
                         <input type="text" id="reg-username" placeholder="Choose a username" autocomplete="username">
                     </div>
                     <div class="form-group">
+                        <label>Full Name:</label>
+                        <input type="text" id="reg-fullName" placeholder="Enter your full name" autocomplete="name" required>
+                    </div>
+                    <div class="form-group">
                         <label>Password:</label>
                         <input type="password" id="reg-password" placeholder="Choose a password" autocomplete="new-password">
                     </div>
@@ -1356,9 +1360,14 @@
 
         try {
             const response = await fetch(endpoint, config);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
             return { response, data: await response.json() };
         } catch (error) {
             console.error('API call failed:', error);
+            alert(`API call failed: ${error.message || error}. Please check your network connection and try again.`);
             throw error;
         }
     }
@@ -1492,6 +1501,7 @@
 
     async function register() {
         const username = document.getElementById('reg-username').value.trim();
+        const fullName = document.getElementById('reg-fullName').value.trim();
         const password = document.getElementById('reg-password').value;
         const height = parseFloat(document.getElementById('reg-height').value);
         const startingWeight = parseFloat(document.getElementById('reg-weight').value);
@@ -1514,7 +1524,7 @@
         try {
             const { response, data } = await apiCall('/api/register', {
                 method: 'POST',
-                body: JSON.stringify({ username, password, height, startingWeight })
+                body: JSON.stringify({ username, fullName, password, height, startingWeight })
             });
 
             if (response.ok) {
@@ -1523,6 +1533,7 @@
                 
                 // Clear form
                 document.getElementById('reg-username').value = '';
+                document.getElementById('reg-fullName').value = '';
                 document.getElementById('reg-password').value = '';
                 document.getElementById('reg-height').value = '';
                 document.getElementById('reg-weight').value = '';
@@ -1910,12 +1921,8 @@
             });
 
             if (response.ok) {
-                // Use local date to avoid timezone issues
-                const now = new Date();
-                const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const dateStr = localDate.getFullYear() + '-' + 
-                              String(localDate.getMonth() + 1).padStart(2, '0') + '-' + 
-                              String(localDate.getDate()).padStart(2, '0');
+                // Use UTC date to avoid timezone issues and ensure consistency
+                const dateStr = new Date().toISOString().split('T')[0];
                 
                 const checkin = {
                     checkin_date: dateStr,
@@ -1956,7 +1963,7 @@
 
         history.innerHTML = checkins.map(checkin => `
                 <div class="checkin-item">
-                    <div class="workout-date">${new Date(checkin.checkin_date).toLocaleDateString()} - ${checkin.weight} lbs</div>
+                    <div class="workout-date">${new Date(checkin.checkin_date + 'T00:00:00').toLocaleDateString()} - ${checkin.weight} lbs</div>
                     <div class="exercise-detail">Feeling: ${checkin.feeling.charAt(0).toUpperCase() + checkin.feeling.slice(1)}</div>
                     ${checkin.notes ? `<div class="exercise-detail">${checkin.notes}</div>` : ''}
                 </div>

@@ -19,8 +19,8 @@ const db = new sqlite3.Database('./fitness_tracker.db', (err) => {
         console.error('Error opening database:', err);
     } else {
         console.log('Connected to SQLite database');
-        migrateDatabase();
         initializeDatabase();
+        migrateDatabase();
     }
 });
 
@@ -123,6 +123,26 @@ function migrateDatabase() {
             });
         }
     });
+
+    // Migration for full_name column
+    db.all("PRAGMA table_info(users)", (err, columns) => {
+        if (err) {
+            console.error('Error getting table info for users:', err);
+            return;
+        }
+
+        const columnExists = columns.some(col => col.name === 'full_name');
+
+        if (!columnExists) {
+            db.run("ALTER TABLE users ADD COLUMN full_name TEXT", (err) => {
+                if (err) {
+                    console.error('Error adding full_name column to users table:', err);
+                } else {
+                    console.log('Column full_name added to users table');
+                }
+            });
+        }
+    });
 }
 
 async function createDefaultAdmin() {
@@ -135,11 +155,12 @@ async function createDefaultAdmin() {
         }
         
         if (!row) {
-            db.run(`INSERT INTO users (username, password_hash, is_admin, height, starting_weight, current_weight) 
-                    VALUES (?, ?, 1, 70, 180, 180)`, 
+            db.run(`INSERT INTO users (username, password_hash, full_name, is_admin, height, starting_weight, current_weight) 
+                    VALUES (?, ?, ?, 1, 70, 180, 180)`, 
                 [
                     'admin', 
-                    hashedPassword
+                    hashedPassword,
+                    'Admin User'
                 ], 
                 function(err) {
                     if (err) {
@@ -180,7 +201,7 @@ function requireAdmin(req, res, next) {
 // Register endpoint
 app.post('/api/register', async (req, res) => {
     try {
-        const { username, password, height, startingWeight } = req.body;
+        const { username, fullName, password, height, startingWeight } = req.body;
 
         if (!username || !password || !height || !startingWeight) {
             return res.status(400).json({ error: 'All fields are required' });
@@ -196,11 +217,16 @@ app.post('/api/register', async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        db.run(`INSERT INTO users (username, password_hash, height, starting_weight, current_weight) 
-                VALUES (?, ?, ?, ?, ?)`,
-            [username, hashedPassword, height, startingWeight, startingWeight],
+        console.log('Attempting to insert user into database...');
+
+        db.run(`INSERT INTO users (username, password_hash, full_name, height, starting_weight, current_weight) 
+                VALUES (?, ?, ?, ?, ?, ?)`,
+            [username, hashedPassword, fullName, height, startingWeight, startingWeight],
             function(err) {
+                console.log('Inside db.run callback. Error object:', err);
+                console.log('Inside db.run callback. This object:', this);
                 if (err) {
+                    console.error('SQLite registration error:', err);
                     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
                         return res.status(400).json({ error: 'Username already exists' });
                     }
@@ -225,7 +251,7 @@ app.post('/api/register', async (req, res) => {
             }
         );
     } catch (error) {
-        console.error('Registration error:', error);
+        console.error('Registration error (outer catch):', error);
         res.status(500).json({ error: 'Server error during registration' });
     }
 });
@@ -281,6 +307,7 @@ app.post('/api/login', async (req, res) => {
                     user: {
                         id: user.id,
                         username: user.username,
+                        fullName: user.full_name,
                         isAdmin: Boolean(user.is_admin),
                         height: user.height,
                         startingWeight: user.starting_weight,
@@ -409,6 +436,7 @@ app.get('/api/user/data', authenticateToken, (req, res) => {
                                 user: {
                                     id: user.id,
                                     username: user.username,
+                                    fullName: user.full_name,
                                     isAdmin: Boolean(user.is_admin),
                                     height: user.height,
                                     startingWeight: user.starting_weight,
@@ -513,12 +541,8 @@ app.post('/api/user/checkin', authenticateToken, (req, res) => {
     const userId = req.user.id;
     const { weight, feeling, notes } = req.body;
     
-    // Use local date to avoid timezone issues
-    const now = new Date();
-    const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const date = localDate.getFullYear() + '-' + 
-                String(localDate.getMonth() + 1).padStart(2, '0') + '-' + 
-                String(localDate.getDate()).padStart(2, '0');
+    // Use UTC date to avoid timezone issues and ensure consistency
+    const date = new Date().toISOString().split('T')[0];
 
     db.serialize(() => {
         db.run('INSERT INTO weekly_checkins (user_id, checkin_date, weight, feeling, notes) VALUES (?, ?, ?, ?, ?)',
