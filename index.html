@@ -33,7 +33,7 @@
             --text-secondary: #cbd5e0;
             --text-muted: #a0aec0;
             --border-color: #4a5568;
-            --header-color: #9f7aea;
+            --header-color: var(--custom-text-color, #9f7aea);
             --nav-bg: #374151;
             --nav-hover: #4a5568;
             --input-bg: #374151;
@@ -41,6 +41,12 @@
             --shadow-light: rgba(0,0,0,0.2);
             --table-border: #4a5568;
             --table-stripe: #374151;
+        }
+
+        /* Custom color variables that can be overridden by user settings */
+        :root {
+            --custom-text-color: #9f7aea;
+            --custom-accent-color: #667eea;
         }
 
         * {
@@ -126,7 +132,7 @@
         }
 
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--custom-accent-color, #667eea) 0%, #764ba2 100%);
             color: white;
             border: none;
             padding: 15px 25px;
@@ -1211,7 +1217,10 @@
     <div id="main-screen" class="hidden">
         <div class="user-info">
             <span class="welcome-text" id="welcome-text"></span>
-            <button class="btn btn-danger logout-btn" onclick="logout()">Logout</button>
+            <div style="float: right;">
+                <button class="btn btn-secondary" onclick="openUserSettingsModal()" style="margin-right: 10px; padding: 8px 15px; font-size: 14px;">⚙️ Settings</button>
+                <button class="btn btn-danger logout-btn" onclick="logout()">Logout</button>
+            </div>
             <div style="clear: both;"></div>
         </div>
 
@@ -1726,6 +1735,98 @@
     </div>
 </div>
 
+<!-- User Settings Modal -->
+<div id="user-settings-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+        <h2>User Settings & Profile</h2>
+        
+        <!-- Profile Information -->
+        <div class="form-group">
+            <label for="settings-full-name">Full Name:</label>
+            <input type="text" id="settings-full-name" placeholder="Enter your full name">
+        </div>
+
+        <div class="form-group">
+            <label for="settings-school">School:</label>
+            <select id="settings-school">
+                <option value="">Select your school...</option>
+                <option value="Harvard University">Harvard University</option>
+                <option value="MIT">MIT</option>
+                <option value="Stanford University">Stanford University</option>
+                <option value="UC Berkeley">UC Berkeley</option>
+                <option value="UCLA">UCLA</option>
+                <option value="University of Texas at Austin">University of Texas at Austin</option>
+                <option value="Georgia Tech">Georgia Tech</option>
+                <option value="Carnegie Mellon">Carnegie Mellon</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+
+        <!-- Custom Colors Section -->
+        <h3 style="margin-top: 20px; color: var(--header-color);">Color Customization</h3>
+        
+        <div class="form-group">
+            <label for="custom-text-color">Text Color:</label>
+            <input type="color" id="custom-text-color" value="#9f7aea">
+            <span style="font-size: 12px; color: var(--text-muted);">Customize your text color in dark mode</span>
+        </div>
+
+        <div class="form-group">
+            <label for="custom-accent-color">Accent Color:</label>
+            <input type="color" id="custom-accent-color" value="#667eea">
+            <span style="font-size: 12px; color: var(--text-muted);">Customize buttons and highlights</span>
+        </div>
+
+        <!-- Social Links Section -->
+        <h3 style="margin-top: 20px; color: var(--header-color);">Social Links</h3>
+        
+        <div class="form-group">
+            <label for="social-youtube">YouTube:</label>
+            <input type="url" id="social-youtube" placeholder="https://youtube.com/@username">
+        </div>
+
+        <div class="form-group">
+            <label for="social-linkedin">LinkedIn:</label>
+            <input type="url" id="social-linkedin" placeholder="https://linkedin.com/in/username">
+        </div>
+
+        <div class="form-group">
+            <label for="social-instagram">Instagram:</label>
+            <input type="url" id="social-instagram" placeholder="https://instagram.com/username">
+        </div>
+
+        <div class="form-group">
+            <label for="social-twitter">Twitter/X:</label>
+            <input type="url" id="social-twitter" placeholder="https://twitter.com/username">
+        </div>
+
+        <div class="form-group">
+            <label for="social-github">GitHub:</label>
+            <input type="url" id="social-github" placeholder="https://github.com/username">
+        </div>
+
+        <div class="form-group">
+            <label for="social-website">Personal Website:</label>
+            <input type="url" id="social-website" placeholder="https://yourwebsite.com">
+        </div>
+
+        <!-- Preview Section -->
+        <h3 style="margin-top: 20px; color: var(--header-color);">Preview</h3>
+        <div id="settings-preview" style="padding: 15px; background: var(--nav-bg); border-radius: 8px; margin: 10px 0;">
+            <div id="preview-text" style="font-weight: 600; margin-bottom: 10px;">Sample Text with Custom Colors</div>
+            <div id="preview-links" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <!-- Social links preview will be populated here -->
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn" onclick="saveUserSettings()">Save Settings</button>
+            <button class="btn btn-secondary" onclick="resetCustomColors()">Reset Colors</button>
+            <button class="btn btn-secondary" onclick="closeUserSettingsModal()">Close</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // Data storage
     let currentUser = null;
@@ -1896,6 +1997,11 @@
                 const leaderboardToggle = document.getElementById('leaderboard-visibility-toggle');
                 if (leaderboardToggle) {
                     leaderboardToggle.checked = !currentUser.hiddenFromLeaderboard;
+                }
+
+                // Apply custom colors if they exist
+                if (currentUser.customColors && Object.keys(currentUser.customColors).length > 0) {
+                    applyCustomColors(currentUser.customColors);
                 }
             }
             
@@ -3384,6 +3490,183 @@
     function closeAdminUserDetailModal() {
         document.getElementById('admin-user-detail-modal').classList.add('hidden');
     }
+
+    // User Settings Modal Functions
+    function openUserSettingsModal() {
+        // Populate current user data
+        document.getElementById('settings-full-name').value = currentUser.fullName || '';
+        document.getElementById('settings-school').value = currentUser.school || '';
+        
+        // Load custom colors
+        const customColors = currentUser.customColors || {};
+        document.getElementById('custom-text-color').value = customColors.textColor || '#9f7aea';
+        document.getElementById('custom-accent-color').value = customColors.accentColor || '#667eea';
+        
+        // Load social links
+        const socialLinks = currentUser.socialLinks || {};
+        document.getElementById('social-youtube').value = socialLinks.youtube || '';
+        document.getElementById('social-linkedin').value = socialLinks.linkedin || '';
+        document.getElementById('social-instagram').value = socialLinks.instagram || '';
+        document.getElementById('social-twitter').value = socialLinks.twitter || '';
+        document.getElementById('social-github').value = socialLinks.github || '';
+        document.getElementById('social-website').value = socialLinks.website || '';
+        
+        // Update preview
+        updateSettingsPreview();
+        
+        // Show modal
+        document.getElementById('user-settings-modal').classList.remove('hidden');
+    }
+
+    function closeUserSettingsModal() {
+        document.getElementById('user-settings-modal').classList.add('hidden');
+    }
+
+    function updateSettingsPreview() {
+        const textColor = document.getElementById('custom-text-color').value;
+        const accentColor = document.getElementById('custom-accent-color').value;
+        
+        // Update preview text
+        const previewText = document.getElementById('preview-text');
+        previewText.style.color = textColor;
+        
+        // Update social links preview
+        const previewLinks = document.getElementById('preview-links');
+        const socialLinks = {
+            youtube: document.getElementById('social-youtube').value,
+            linkedin: document.getElementById('social-linkedin').value,
+            instagram: document.getElementById('social-instagram').value,
+            twitter: document.getElementById('social-twitter').value,
+            github: document.getElementById('social-github').value,
+            website: document.getElementById('social-website').value
+        };
+        
+        previewLinks.innerHTML = '';
+        
+        Object.entries(socialLinks).forEach(([platform, url]) => {
+            if (url) {
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.style.cssText = `
+                    color: ${accentColor}; 
+                    text-decoration: none; 
+                    padding: 5px 10px; 
+                    background: ${accentColor}20; 
+                    border-radius: 5px; 
+                    font-size: 12px;
+                    display: inline-block;
+                `;
+                
+                const icons = {
+                    youtube: '📺',
+                    linkedin: '💼',
+                    instagram: '📷',
+                    twitter: '🐦',
+                    github: '⚡',
+                    website: '🌐'
+                };
+                
+                link.textContent = `${icons[platform]} ${platform.charAt(0).toUpperCase() + platform.slice(1)}`;
+                previewLinks.appendChild(link);
+            }
+        });
+    }
+
+    async function saveUserSettings() {
+        const fullName = document.getElementById('settings-full-name').value;
+        const school = document.getElementById('settings-school').value;
+        
+        const customColors = {
+            textColor: document.getElementById('custom-text-color').value,
+            accentColor: document.getElementById('custom-accent-color').value
+        };
+        
+        const socialLinks = {
+            youtube: document.getElementById('social-youtube').value,
+            linkedin: document.getElementById('social-linkedin').value,
+            instagram: document.getElementById('social-instagram').value,
+            twitter: document.getElementById('social-twitter').value,
+            github: document.getElementById('social-github').value,
+            website: document.getElementById('social-website').value
+        };
+        
+        try {
+            const { response, data } = await apiCall('/api/user/profile', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    fullName,
+                    school,
+                    customColors,
+                    socialLinks
+                })
+            });
+            
+            if (response.ok) {
+                alert('Settings saved successfully!');
+                
+                // Update current user data
+                currentUser.fullName = fullName;
+                currentUser.school = school;
+                currentUser.customColors = customColors;
+                currentUser.socialLinks = socialLinks;
+                
+                // Apply custom colors
+                applyCustomColors(customColors);
+                
+                // Update user interface
+                updateUserInterface();
+                
+                closeUserSettingsModal();
+            } else {
+                alert(data.error || 'Failed to save settings');
+            }
+        } catch (error) {
+            console.error('Save settings error:', error);
+            alert('Failed to save settings. Please try again.');
+        }
+    }
+
+    function resetCustomColors() {
+        document.getElementById('custom-text-color').value = '#9f7aea';
+        document.getElementById('custom-accent-color').value = '#667eea';
+        updateSettingsPreview();
+    }
+
+    function applyCustomColors(customColors) {
+        if (customColors && Object.keys(customColors).length > 0) {
+            // Apply custom colors as CSS variables
+            const root = document.documentElement;
+            
+            if (customColors.textColor) {
+                root.style.setProperty('--custom-text-color', customColors.textColor);
+            }
+            
+            if (customColors.accentColor) {
+                root.style.setProperty('--custom-accent-color', customColors.accentColor);
+            }
+        }
+    }
+
+    // Add event listeners for color preview updates
+    document.addEventListener('DOMContentLoaded', function() {
+        const colorInputs = ['custom-text-color', 'custom-accent-color'];
+        const urlInputs = ['social-youtube', 'social-linkedin', 'social-instagram', 'social-twitter', 'social-github', 'social-website'];
+        
+        colorInputs.forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.addEventListener('input', updateSettingsPreview);
+            }
+        });
+        
+        urlInputs.forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.addEventListener('input', updateSettingsPreview);
+            }
+        });
+    });
 
     async function promoteUserToAdmin() {
         if (!currentUser.isAdmin) {

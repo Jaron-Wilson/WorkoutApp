@@ -155,6 +155,9 @@ function migrateDatabase() {
 
         const fullNameExists = columns.some(col => col.name === 'full_name');
         const hiddenFromLeaderboardExists = columns.some(col => col.name === 'hidden_from_leaderboard');
+        const schoolExists = columns.some(col => col.name === 'school');
+        const customColorsExists = columns.some(col => col.name === 'custom_colors');
+        const socialLinksExists = columns.some(col => col.name === 'social_links');
 
         if (!fullNameExists) {
             db.run("ALTER TABLE users ADD COLUMN full_name TEXT", (err) => {
@@ -180,6 +183,36 @@ function migrateDatabase() {
                             console.log('Admin account set as hidden from leaderboard');
                         }
                     });
+                }
+            });
+        }
+
+        if (!schoolExists) {
+            db.run("ALTER TABLE users ADD COLUMN school TEXT", (err) => {
+                if (err) {
+                    console.error('Error adding school column to users table:', err);
+                } else {
+                    console.log('Column school added to users table');
+                }
+            });
+        }
+
+        if (!customColorsExists) {
+            db.run("ALTER TABLE users ADD COLUMN custom_colors TEXT DEFAULT '{}'", (err) => {
+                if (err) {
+                    console.error('Error adding custom_colors column to users table:', err);
+                } else {
+                    console.log('Column custom_colors added to users table');
+                }
+            });
+        }
+
+        if (!socialLinksExists) {
+            db.run("ALTER TABLE users ADD COLUMN social_links TEXT DEFAULT '{}'", (err) => {
+                if (err) {
+                    console.error('Error adding social_links column to users table:', err);
+                } else {
+                    console.log('Column social_links added to users table');
                 }
             });
         }
@@ -499,7 +532,10 @@ app.get('/api/user/data', authenticateToken, (req, res) => {
                                     startingWeight: user.starting_weight,
                                     currentWeight: user.current_weight,
                                     joinDate: user.join_date,
-                                    hiddenFromLeaderboard: Boolean(user.hidden_from_leaderboard)
+                                    hiddenFromLeaderboard: Boolean(user.hidden_from_leaderboard),
+                                    school: user.school,
+                                    customColors: user.custom_colors ? JSON.parse(user.custom_colors) : {},
+                                    socialLinks: user.social_links ? JSON.parse(user.social_links) : {}
                                 },
                                 maxes: maxesObj,
                                 maxUpdateDates: Object.keys(maxUpdateDates),
@@ -1325,6 +1361,66 @@ app.post('/api/user/toggle-leaderboard-visibility', authenticateToken, (req, res
             });
         }
     );
+});
+
+// Update user profile endpoint
+app.put('/api/user/profile', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const { fullName, school, customColors, socialLinks } = req.body;
+
+    // Validate inputs
+    if (customColors && typeof customColors !== 'object') {
+        return res.status(400).json({ error: 'Custom colors must be an object' });
+    }
+
+    if (socialLinks && typeof socialLinks !== 'object') {
+        return res.status(400).json({ error: 'Social links must be an object' });
+    }
+
+    // Build update query dynamically based on provided fields
+    const updates = [];
+    const values = [];
+
+    if (fullName !== undefined) {
+        updates.push('full_name = ?');
+        values.push(fullName);
+    }
+
+    if (school !== undefined) {
+        updates.push('school = ?');
+        values.push(school);
+    }
+
+    if (customColors !== undefined) {
+        updates.push('custom_colors = ?');
+        values.push(JSON.stringify(customColors));
+    }
+
+    if (socialLinks !== undefined) {
+        updates.push('social_links = ?');
+        values.push(JSON.stringify(socialLinks));
+    }
+
+    if (updates.length === 0) {
+        return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(userId);
+
+    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+
+    db.run(query, values, function(err) {
+        if (err) {
+            console.error('Error updating user profile:', err);
+            return res.status(500).json({ error: 'Failed to update profile' });
+        }
+
+        res.json({ 
+            success: true, 
+            message: 'Profile updated successfully' 
+        });
+    });
 });
 
 // Admin toggle user's leaderboard visibility 
