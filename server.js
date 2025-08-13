@@ -70,6 +70,17 @@ function initializeDatabase() {
             FOREIGN KEY (workout_id) REFERENCES workouts (id)
         )`);
 
+        db.run(`CREATE TABLE IF NOT EXISTS draft_exercises (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            exercise_name TEXT NOT NULL,
+            weight REAL,
+            sets INTEGER,
+            reps INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
+
         db.run(`CREATE TABLE IF NOT EXISTS weekly_checkins (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -643,6 +654,127 @@ app.post('/api/user/workout', authenticateToken, (req, res) => {
     );
 });
 
+// Save draft exercise endpoint
+app.post('/api/user/draft-exercise', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const { exercise, weight, sets, reps } = req.body;
+
+    if (!exercise || !weight || !sets || !reps) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    db.run('INSERT INTO draft_exercises (user_id, exercise_name, weight, sets, reps) VALUES (?, ?, ?, ?, ?)', 
+        [userId, exercise, weight, sets, reps], function(err) {
+            if (err) {
+                console.error('Error saving draft exercise:', err);
+                return res.status(500).json({ error: 'Failed to save exercise' });
+            }
+            
+            logUserActivity(userId, 'ADD_DRAFT_EXERCISE', `Added draft exercise: ${exercise}`, 'exercise', this.lastID, null, JSON.stringify({exercise, weight, sets, reps}), req);
+            
+            res.json({ message: 'Exercise saved successfully', exerciseId: this.lastID });
+        }
+    );
+});
+
+// Get draft exercises endpoint
+app.get('/api/user/draft-exercises', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    
+    db.all('SELECT * FROM draft_exercises WHERE user_id = ? ORDER BY created_at DESC', [userId], (err, exercises) => {
+        if (err) {
+            console.error('Error fetching draft exercises:', err);
+            return res.status(500).json({ error: 'Failed to fetch exercises' });
+        }
+        
+        res.json(exercises);
+    });
+});
+
+// Delete draft exercise endpoint
+app.delete('/api/user/draft-exercise/:id', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const exerciseId = req.params.id;
+
+    // First check if the exercise belongs to the user
+    db.get('SELECT id FROM draft_exercises WHERE id = ? AND user_id = ?', [exerciseId, userId], (err, exercise) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!exercise) {
+            return res.status(404).json({ error: 'Exercise not found or access denied' });
+        }
+
+        db.run('DELETE FROM draft_exercises WHERE id = ? AND user_id = ?', [exerciseId, userId], function(err) {
+            if (err) {
+                console.error('Error deleting draft exercise:', err);
+                return res.status(500).json({ error: 'Failed to delete exercise' });
+            }
+            
+            logUserActivity(userId, 'DELETE_DRAFT_EXERCISE', `Deleted draft exercise ID ${exerciseId}`, 'exercise', exerciseId, null, null, req);
+            
+            res.json({ message: 'Exercise deleted successfully' });
+        });
+    });
+});
+
+// Convert draft exercises to workout
+app.post('/api/user/finalize-workout', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const { date } = req.body;
+
+    if (!date) {
+        return res.status(400).json({ error: 'Date is required' });
+    }
+
+    // First get all draft exercises for the user
+    db.all('SELECT * FROM draft_exercises WHERE user_id = ? ORDER BY created_at', [userId], (err, draftExercises) => {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to fetch draft exercises' });
+        }
+
+        if (draftExercises.length === 0) {
+            return res.status(400).json({ error: 'No exercises to save' });
+        }
+
+        // Create the workout
+        db.run('INSERT INTO workouts (user_id, workout_date) VALUES (?, ?)', 
+            [userId, date], function(err) {
+                if (err) {
+                    return res.status(500).json({ error: 'Failed to create workout' });
+                }
+
+                const workoutId = this.lastID;
+                const stmt = db.prepare('INSERT INTO workout_exercises (workout_id, exercise_name, weight, sets, reps) VALUES (?, ?, ?, ?, ?)');
+
+                // Transfer all draft exercises to the workout
+                draftExercises.forEach(ex => {
+                    stmt.run(workoutId, ex.exercise_name, ex.weight, ex.sets, ex.reps);
+                });
+
+                stmt.finalize((err) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Failed to save workout exercises' });
+                    }
+                    
+                    // Clear all draft exercises for this user
+                    db.run('DELETE FROM draft_exercises WHERE user_id = ?', [userId], (err) => {
+                        if (err) {
+                            console.error('Error clearing draft exercises:', err);
+                        }
+                        
+                        // Log activity
+                        logUserActivity(userId, 'CREATE_WORKOUT', `Finalized workout with ${draftExercises.length} exercises on ${date}`, 'workout', workoutId, null, JSON.stringify(draftExercises), req);
+                        
+                        res.json({ message: 'Workout saved successfully', workoutId });
+                    });
+                });
+            }
+        );
+    });
+});
+
 // Save weekly checkin endpoint
 app.post('/api/user/checkin', authenticateToken, (req, res) => {
     const userId = req.user.id;
@@ -908,11 +1040,20 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, (req, res) => {
                                 GROUP BY user_id
                             )`, (err4, avgGain) => {
                         
-                        res.json({
-                            totalUsers: totalUsers ? totalUsers.total_users : 0,
-                            totalWorkouts: totalWorkouts ? totalWorkouts.total_workouts : 0,
-                            activeUsers: activeUsers ? activeUsers.active_users : 0,
-                            avgStrengthGain: avgGain ? Math.round(avgGain.avg_strength_gain || 0) : 0
+                        db.get(`SELECT 
+                                    COALESCE(SUM(reps), 0) as total_reps,
+                                    COALESCE(SUM(sets), 0) as total_sets,
+                                    COALESCE(SUM(weight), 0) as total_weight
+                                FROM workout_exercises`, (err5, totals) => {
+                            res.json({
+                                totalUsers: totalUsers ? totalUsers.total_users : 0,
+                                totalWorkouts: totalWorkouts ? totalWorkouts.total_workouts : 0,
+                                activeUsers: activeUsers ? activeUsers.active_users : 0,
+                                avgStrengthGain: avgGain ? Math.round(avgGain.avg_strength_gain || 0) : 0,
+                                totalReps: totals ? totals.total_reps : 0,
+                                totalSets: totals ? totals.total_sets : 0,
+                                totalWeight: totals ? totals.total_weight : 0
+                            });
                         });
                     });
                 });
@@ -1024,6 +1165,71 @@ app.delete('/api/user/workout/:id', authenticateToken, (req, res) => {
                 logUserActivity(userId, 'DELETE_WORKOUT', `Deleted workout ID ${workoutId}`, 'workout', workoutId, null, null, req);
                 
                 res.json({ message: 'Workout deleted successfully' });
+            });
+        });
+    });
+});
+
+// Update workout endpoint
+app.put('/api/user/workout/:id', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const workoutId = req.params.id;
+    const { date, exercises } = req.body;
+
+    console.log('Update workout request:', { userId, workoutId, date, exercises });
+
+    if (!date || !exercises || exercises.length === 0) {
+        console.log('Validation failed:', { date, exercises });
+        return res.status(400).json({ error: 'Date and exercises are required' });
+    }
+
+    // First check if the workout belongs to the user
+    db.get('SELECT id FROM workouts WHERE id = ? AND user_id = ?', [workoutId, userId], (err, workout) => {
+        if (err) {
+            console.error('Database error finding workout:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+
+        console.log('Workout lookup result:', { workout, workoutId, userId });
+
+        if (!workout) {
+            return res.status(404).json({ error: 'Workout not found or access denied' });
+        }
+
+        // Update workout and exercises
+        db.serialize(() => {
+            // Update workout date
+            db.run('UPDATE workouts SET workout_date = ? WHERE id = ?', [date, workoutId], (err) => {
+                if (err) {
+                    console.error('Error updating workout:', err);
+                    return res.status(500).json({ error: 'Failed to update workout' });
+                }
+
+                // Delete existing exercises
+                db.run('DELETE FROM workout_exercises WHERE workout_id = ?', [workoutId], (err) => {
+                    if (err) {
+                        console.error('Error deleting old exercises:', err);
+                        return res.status(500).json({ error: 'Failed to update exercises' });
+                    }
+
+                    // Insert new exercises
+                    const stmt = db.prepare('INSERT INTO workout_exercises (workout_id, exercise_name, weight, sets, reps) VALUES (?, ?, ?, ?, ?)');
+                    exercises.forEach(ex => {
+                        stmt.run(workoutId, ex.exercise, ex.weight, ex.sets, ex.reps);
+                    });
+
+                    stmt.finalize((err) => {
+                        if (err) {
+                            console.error('Error inserting new exercises:', err);
+                            return res.status(500).json({ error: 'Failed to save updated exercises' });
+                        }
+                        
+                        // Log activity
+                        logUserActivity(userId, 'UPDATE_WORKOUT', `Updated workout ID ${workoutId} with ${exercises.length} exercises on ${date}`, 'workout', workoutId, null, JSON.stringify(exercises), req);
+                        
+                        res.json({ message: 'Workout updated successfully' });
+                    });
+                });
             });
         });
     });
