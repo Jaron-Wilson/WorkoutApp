@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workout Graphs</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">Workout Graphs</h1>
+        <div class="row mt-5">
+            <div class="col-md-6">
+                <canvas id="weightChart"></canvas>
+            </div>
+            <div class="col-md-6">
+                <canvas id="strengthGainChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+
+            fetch('/api/user/data', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const weeklyCheckins = data.weeklyCheckins;
+                const maxes = data.maxes;
+
+                // Weight Chart
+                const weightLabels = weeklyCheckins.map(c => c.checkin_date);
+                const weightData = weeklyCheckins.map(c => c.weight);
+                const weightChartCtx = document.getElementById('weightChart').getContext('2d');
+                new Chart(weightChartCtx, {
+                    type: 'line',
+                    data: {
+                        labels: weightLabels,
+                        datasets: [{
+                            label: 'Weight',
+                            data: weightData,
+                            borderColor: 'blue',
+                            fill: false
+                        }]
+                    }
+                });
+
+                // Strength Gain Chart
+                const strengthGainLabels = Object.keys(maxes);
+                const strengthGainData = strengthGainLabels.map(exercise => maxes[exercise].current - maxes[exercise].starting);
+                const strengthGainChartCtx = document.getElementById('strengthGainChart').getContext('2d');
+                new Chart(strengthGainChartCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: strengthGainLabels,
+                        datasets: [{
+                            label: 'Strength Gain',
+                            data: strengthGainData,
+                            backgroundColor: 'green'
+                        }]
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
