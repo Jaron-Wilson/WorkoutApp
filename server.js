@@ -690,7 +690,7 @@ app.get('/api/leaderboard', authenticateToken, (req, res) => {
             FROM weekly_checkins 
             GROUP BY user_id
         ) c_stats ON u.id = c_stats.user_id
-        WHERE u.is_admin = 0 AND (u.hidden_from_leaderboard = 0 OR u.hidden_from_leaderboard IS NULL)
+        WHERE (u.hidden_from_leaderboard = 0 OR u.hidden_from_leaderboard IS NULL)
         GROUP BY u.id, u.username, u.current_weight, u.starting_weight, c_stats.last_checkin_date
         ORDER BY strength_gain DESC`,
         (err, users) => {
