@@ -1,0 +1,1 @@
+1: this looks bad on mobile, like the settings button is bigger than the username, and it does not show the users profile modal on the leaderboard when I click on it. fix this up make it look nice on mobile and on pc

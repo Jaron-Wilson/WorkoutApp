@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node server.js)"
+      "Bash(npm start)",
+      "Bash(node:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)"
     ],
     "deny": []
   }
