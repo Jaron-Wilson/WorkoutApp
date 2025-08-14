@@ -169,6 +169,12 @@ function migrateDatabase() {
         const schoolExists = columns.some(col => col.name === 'school');
         const customColorsExists = columns.some(col => col.name === 'custom_colors');
         const socialLinksExists = columns.some(col => col.name === 'social_links');
+        const bioExists = columns.some(col => col.name === 'bio');
+        const ageExists = columns.some(col => col.name === 'age');
+        const locationExists = columns.some(col => col.name === 'location');
+        const youtubeExists = columns.some(col => col.name === 'youtube');
+        const instagramExists = columns.some(col => col.name === 'instagram');
+        const linkedinExists = columns.some(col => col.name === 'linkedin');
 
         if (!fullNameExists) {
             db.run("ALTER TABLE users ADD COLUMN full_name TEXT", (err) => {
@@ -224,6 +230,66 @@ function migrateDatabase() {
                     console.error('Error adding social_links column to users table:', err);
                 } else {
                     console.log('Column social_links added to users table');
+                }
+            });
+        }
+
+        if (!bioExists) {
+            db.run("ALTER TABLE users ADD COLUMN bio TEXT", (err) => {
+                if (err) {
+                    console.error('Error adding bio column to users table:', err);
+                } else {
+                    console.log('Column bio added to users table');
+                }
+            });
+        }
+
+        if (!ageExists) {
+            db.run("ALTER TABLE users ADD COLUMN age INTEGER", (err) => {
+                if (err) {
+                    console.error('Error adding age column to users table:', err);
+                } else {
+                    console.log('Column age added to users table');
+                }
+            });
+        }
+
+        if (!locationExists) {
+            db.run("ALTER TABLE users ADD COLUMN location TEXT", (err) => {
+                if (err) {
+                    console.error('Error adding location column to users table:', err);
+                } else {
+                    console.log('Column location added to users table');
+                }
+            });
+        }
+
+        if (!youtubeExists) {
+            db.run("ALTER TABLE users ADD COLUMN youtube TEXT", (err) => {
+                if (err) {
+                    console.error('Error adding youtube column to users table:', err);
+                } else {
+                    console.log('Column youtube added to users table');
+                }
+            });
+        }
+
+        if (!instagramExists) {
+            db.run("ALTER TABLE users ADD COLUMN instagram TEXT", (err) => {
+                if (err) {
+                    console.error('Error adding instagram column to users table:', err);
+                } else {
+                    console.log('Column instagram added to users table');
+                }
+            });
+        }
+
+        if (!linkedinExists) {
+            db.run("ALTER TABLE users ADD COLUMN linkedin TEXT", (err) => {
+                if (err) {
+                    console.error('Error adding linkedin column to users table:', err);
+                } else {
+                    console.log('Column linkedin added to users table');
                 }
             });
         }
@@ -545,6 +611,12 @@ app.get('/api/user/data', authenticateToken, (req, res) => {
                                     joinDate: user.join_date,
                                     hiddenFromLeaderboard: Boolean(user.hidden_from_leaderboard),
                                     school: user.school,
+                                    bio: user.bio,
+                                    age: user.age,
+                                    location: user.location,
+                                    youtube: user.youtube,
+                                    instagram: user.instagram,
+                                    linkedin: user.linkedin,
                                     customColors: user.custom_colors ? JSON.parse(user.custom_colors) : {},
                                     socialLinks: user.social_links ? JSON.parse(user.social_links) : {}
                                 },
@@ -832,7 +904,14 @@ app.get('/api/leaderboard', authenticateToken, (req, res) => {
         SELECT 
             u.id, 
             u.username,
-            u.full_name, 
+            u.full_name,
+            u.school,
+            u.bio,
+            u.age,
+            u.location,
+            u.youtube,
+            u.instagram,
+            u.linkedin,
             u.current_weight, 
             u.starting_weight,
             COALESCE(SUM(um.current_max - um.starting_max), 0) as strength_gain,
@@ -1572,7 +1651,7 @@ app.post('/api/user/toggle-leaderboard-visibility', authenticateToken, (req, res
 // Update user profile endpoint
 app.put('/api/user/profile', authenticateToken, (req, res) => {
     const userId = req.user.id;
-    const { fullName, school, customColors, socialLinks } = req.body;
+    const { fullName, school, customColors, socialLinks, age, bio, location, youtube, instagram, linkedin } = req.body;
 
     // Validate inputs
     if (customColors && typeof customColors !== 'object') {
@@ -1581,6 +1660,10 @@ app.put('/api/user/profile', authenticateToken, (req, res) => {
 
     if (socialLinks && typeof socialLinks !== 'object') {
         return res.status(400).json({ error: 'Social links must be an object' });
+    }
+
+    if (age !== undefined && (isNaN(age) || age < 0 || age > 120)) {
+        return res.status(400).json({ error: 'Age must be a valid number between 0 and 120' });
     }
 
     // Build update query dynamically based on provided fields
@@ -1595,6 +1678,36 @@ app.put('/api/user/profile', authenticateToken, (req, res) => {
     if (school !== undefined) {
         updates.push('school = ?');
         values.push(school);
+    }
+
+    if (age !== undefined) {
+        updates.push('age = ?');
+        values.push(age);
+    }
+
+    if (bio !== undefined) {
+        updates.push('bio = ?');
+        values.push(bio);
+    }
+
+    if (location !== undefined) {
+        updates.push('location = ?');
+        values.push(location);
+    }
+
+    if (youtube !== undefined) {
+        updates.push('youtube = ?');
+        values.push(youtube);
+    }
+
+    if (instagram !== undefined) {
+        updates.push('instagram = ?');
+        values.push(instagram);
+    }
+
+    if (linkedin !== undefined) {
+        updates.push('linkedin = ?');
+        values.push(linkedin);
     }
 
     if (customColors !== undefined) {

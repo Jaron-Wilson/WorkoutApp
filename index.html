@@ -296,6 +296,28 @@
             -webkit-overflow-scrolling: touch;
         }
 
+        /* Leaderboard link styling for better visibility */
+        .leaderboard-link {
+            color: #2563eb !important;
+            text-decoration: underline !important;
+            font-weight: 600 !important;
+            transition: color 0.2s ease !important;
+        }
+
+        .leaderboard-link:hover {
+            color: #1d4ed8 !important;
+            text-decoration: none !important;
+        }
+
+        /* Dark mode leaderboard links */
+        [data-theme="dark"] .leaderboard-link {
+            color: #60a5fa !important;
+        }
+
+        [data-theme="dark"] .leaderboard-link:hover {
+            color: #93c5fd !important;
+        }
+
         .exercise-input {
             display: grid;
             grid-template-columns: 2fr 1fr 1fr;
@@ -1796,6 +1818,46 @@
     </div>
 </div>
 
+<div id="edit-profile-modal" class="modal hidden">
+    <div class="modal-content">
+        <h2>Edit Profile</h2>
+        <form id="edit-profile-form" onsubmit="saveProfileChanges(event)" style="display: grid; gap: 15px;">
+            <div>
+                <label for="edit-school">🎓 School:</label>
+                <input type="text" id="edit-school" placeholder="Enter your school">
+            </div>
+            <div>
+                <label for="edit-location">📍 Location:</label>
+                <input type="text" id="edit-location" placeholder="Enter your location">
+            </div>
+            <div>
+                <label for="edit-age">🎂 Age:</label>
+                <input type="number" id="edit-age" min="1" max="120" placeholder="Enter your age">
+            </div>
+            <div>
+                <label for="edit-bio">📝 Bio:</label>
+                <textarea id="edit-bio" rows="3" placeholder="Tell us about yourself..."></textarea>
+            </div>
+            <div>
+                <label for="edit-youtube">📺 YouTube:</label>
+                <input type="url" id="edit-youtube" placeholder="https://youtube.com/@username">
+            </div>
+            <div>
+                <label for="edit-instagram">📷 Instagram:</label>
+                <input type="url" id="edit-instagram" placeholder="https://instagram.com/username">
+            </div>
+            <div>
+                <label for="edit-linkedin">💼 LinkedIn:</label>
+                <input type="url" id="edit-linkedin" placeholder="https://linkedin.com/in/username">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn">Save Changes</button>
+                <button type="button" class="btn" onclick="closeEditProfileModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="day-detail-modal" class="modal hidden">
     <div class="modal-content">
         <h2 id="day-detail-title">Day Details</h2>
@@ -2847,14 +2909,14 @@
                         <tr ${entry.username === currentUser.username ? 'style="background-color: var(--nav-bg);"' : ''}>
                             <td data-label="#">${index + 1}</td>
                             <td data-label="Athlete">
-                                <a href="#" onclick="showUserProfile('${entry.username}', '${entry.full_name || entry.username}')" style="color: var(--header-color); text-decoration: underline;">
+                                <a href="#" onclick="showUserProfile('${entry.username}', '${entry.full_name || entry.username}', ${JSON.stringify(entry).replace(/"/g, '&quot;')})" class="leaderboard-link">
                                     ${entry.username}
                                 </a>
                                 ${entry.username === currentUser.username ? ' (You)' : ''}
                             </td>
                             <td data-label="Gain">${entry.strength_gain}lb</td>
                             <td data-label="Workouts">${entry.workout_count}</td>
-                            <td data-label="Last Workout">${entry.last_workout_date ? `<a href="#" onclick="showWorkoutModal(${entry.last_workout_id})">${new Date(entry.last_workout_date + 'T00:00:00').toLocaleDateString()}</a>` : 'N/A'}</td>
+                            <td data-label="Last Workout">${entry.last_workout_date ? `<a href="#" onclick="showWorkoutModal(${entry.last_workout_id})" class="leaderboard-link">${new Date(entry.last_workout_date + 'T00:00:00').toLocaleDateString()}</a>` : 'N/A'}</td>
                             <td data-label="Last Check-in">${entry.last_checkin_date ? new Date(entry.last_checkin_date + 'T00:00:00').toLocaleDateString() : 'N/A'}</td>
                             <td data-label="Strength-Progress">
                                 <div class="progress-bar">
@@ -2899,23 +2961,174 @@
         document.getElementById('workout-modal').classList.add('hidden');
     }
 
-    function showUserProfile(username, fullName) {
+    async function showUserProfile(username, fullName, profileData = null) {
         const modalTitle = document.getElementById('user-profile-title');
         const modalBody = document.getElementById('user-profile-body');
         
         modalTitle.textContent = 'User Profile';
-        modalBody.innerHTML = `
-            <div style="text-align: center; padding: 20px;">
-                <h3 style="color: var(--header-color); margin-bottom: 10px;">${username}</h3>
-                <p style="color: var(--text-secondary); font-size: 18px;">${fullName || 'No full name provided'}</p>
-            </div>
-        `;
+        
+        // If we have profile data from leaderboard, use it; otherwise show basic info
+        if (profileData) {
+            modalBody.innerHTML = createDetailedProfile(username, profileData);
+        } else {
+            // Show basic profile for now, could enhance to fetch full data later
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <h3 style="color: var(--header-color); margin-bottom: 10px;">${username}</h3>
+                    <p style="color: var(--text-secondary); font-size: 18px;">${fullName || 'No full name provided'}</p>
+                </div>
+            `;
+        }
         
         document.getElementById('user-profile-modal').classList.remove('hidden');
     }
 
+    function createDetailedProfile(username, profile) {
+        // Create socialLinks object from individual fields
+        const socialLinks = {};
+        if (profile.youtube) socialLinks.youtube = profile.youtube;
+        if (profile.instagram) socialLinks.instagram = profile.instagram;
+        if (profile.linkedin) socialLinks.linkedin = profile.linkedin;
+        
+        return `
+            <div style="padding: 20px;">
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <h3 style="color: var(--header-color); margin-bottom: 10px; font-size: 1.5em;">${username}</h3>
+                    ${profile.full_name ? `<p style="color: var(--text-secondary); font-size: 18px; margin-bottom: 5px;">${profile.full_name}</p>` : ''}
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    ${profile.school ? `
+                        <div>
+                            <strong style="color: var(--header-color);">🎓 School:</strong>
+                            <p style="margin: 5px 0; color: var(--text-primary);">${profile.school}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${profile.location ? `
+                        <div>
+                            <strong style="color: var(--header-color);">📍 Location:</strong>
+                            <p style="margin: 5px 0; color: var(--text-primary);">${profile.location}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${profile.age ? `
+                        <div>
+                            <strong style="color: var(--header-color);">🎂 Age:</strong>
+                            <p style="margin: 5px 0; color: var(--text-primary);">${profile.age} years old</p>
+                        </div>
+                    ` : ''}
+                    
+                    <div>
+                        <strong style="color: var(--header-color);">💪 Strength Gain:</strong>
+                        <p style="margin: 5px 0; color: var(--text-primary);">${profile.strength_gain || 0}lbs</p>
+                    </div>
+                </div>
+                
+                ${profile.bio ? `
+                    <div style="margin-bottom: 20px;">
+                        <strong style="color: var(--header-color);">📝 Bio:</strong>
+                        <p style="margin: 10px 0; color: var(--text-primary); line-height: 1.5; padding: 10px; background: var(--nav-bg); border-radius: 8px;">${profile.bio}</p>
+                    </div>
+                ` : ''}
+                
+                ${Object.keys(socialLinks).length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <strong style="color: var(--header-color);">🔗 Social Links:</strong>
+                        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px;">
+                            ${Object.entries(socialLinks).map(([platform, url]) => {
+                                if (!url) return '';
+                                const icons = {
+                                    youtube: '📺',
+                                    instagram: '📷',
+                                    twitter: '🐦',
+                                    linkedin: '💼',
+                                    github: '💻'
+                                };
+                                return `<a href="${url}" target="_blank" style="color: var(--header-color); text-decoration: none; padding: 5px 10px; background: var(--nav-bg); border-radius: 15px; font-size: 14px;">
+                                    ${icons[platform] || '🔗'} ${platform.charAt(0).toUpperCase() + platform.slice(1)}
+                                </a>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <p style="color: var(--text-muted); font-size: 14px;">
+                        Member since ${new Date(profile.join_date || Date.now()).toLocaleDateString()}
+                    </p>
+                </div>
+                
+                ${username === currentUser.username ? `
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button onclick="openEditProfileModal()" class="edit-btn" style="background: var(--header-color); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                            ✏️ Edit Profile
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
     function closeUserProfileModal() {
         document.getElementById('user-profile-modal').classList.add('hidden');
+    }
+
+    function openEditProfileModal() {
+        // Populate form with current user data
+        document.getElementById('edit-school').value = currentUser.school || '';
+        document.getElementById('edit-location').value = currentUser.location || '';
+        document.getElementById('edit-age').value = currentUser.age || '';
+        document.getElementById('edit-bio').value = currentUser.bio || '';
+        document.getElementById('edit-youtube').value = currentUser.youtube || '';
+        document.getElementById('edit-instagram').value = currentUser.instagram || '';
+        document.getElementById('edit-linkedin').value = currentUser.linkedin || '';
+        
+        document.getElementById('edit-profile-modal').classList.remove('hidden');
+    }
+
+    function closeEditProfileModal() {
+        document.getElementById('edit-profile-modal').classList.add('hidden');
+    }
+
+    async function saveProfileChanges(event) {
+        event.preventDefault();
+        
+        const profileData = {
+            school: document.getElementById('edit-school').value.trim(),
+            location: document.getElementById('edit-location').value.trim(),
+            age: parseInt(document.getElementById('edit-age').value) || null,
+            bio: document.getElementById('edit-bio').value.trim(),
+            youtube: document.getElementById('edit-youtube').value.trim(),
+            instagram: document.getElementById('edit-instagram').value.trim(),
+            linkedin: document.getElementById('edit-linkedin').value.trim()
+        };
+
+        try {
+            const { response, data } = await apiCall('/api/user/profile', {
+                method: 'PUT',
+                body: JSON.stringify(profileData)
+            });
+
+            if (response.ok) {
+                // Update current user data
+                Object.assign(currentUser, profileData);
+                
+                alert('Profile updated successfully!');
+                closeEditProfileModal();
+                
+                // Refresh the profile modal if it's showing the current user
+                const profileTitle = document.getElementById('user-profile-title').textContent;
+                if (profileTitle.includes(currentUser.username)) {
+                    showUserProfile(currentUser.username, currentUser.fullName || currentUser.username);
+                }
+            } else {
+                alert(data.error || 'Failed to update profile');
+            }
+        } catch (error) {
+            console.error('Profile update error:', error);
+            alert('Failed to update profile. Please try again.');
+        }
     }
 
     function closeDayDetailModal() {
